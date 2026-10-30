@@ -1,0 +1,69 @@
+﻿AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: AIndigo Multi-Tenant Cloud Control Plane (Lambda + API Gateway HTTP API)
+
+Parameters:
+  JwtSigningSecret:
+    Type: String
+    NoEcho: true
+    Default: aindigo-prod-jwt-secret-change-me-in-aws-ssm
+
+Resources:
+  AIndigoControlPlaneHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - "*"
+        AllowHeaders:
+          - Authorization
+          - Content-Type
+          - x-api-key
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+
+  AIndigoControlPlaneFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: nodejs22.x
+      Architectures:
+        - arm64
+      Handler: lambda.handler
+      CodeUri: packages/control-plane/
+      MemorySize: 512
+      Timeout: 15
+      Environment:
+        Variables:
+          NODE_ENV: production
+          CONTROL_PLANE_DB_PATH: /tmp/controlplane_cloud.db
+          JWT_SECRET: !Ref JwtSigningSecret
+      Events:
+        CatchAllApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AIndigoControlPlaneHttpApi
+            Path: /{proxy+}
+            Method: ANY
+        RootApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref AIndigoControlPlaneHttpApi
+            Path: /
+            Method: GET
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: es2022
+        Sourcemap: false
+        EntryPoints:
+          - src/lambda.ts
+        External:
+          - node:sqlite
+
+Outputs:
+  ControlPlaneHttpsUrl:
+    Description: "Public HTTPS URL for AIndigo Multi-Tenant Control Plane"
+    Value: !Sub "https://${AIndigoControlPlaneHttpApi}.execute-api.${AWS::Region}.amazonaws.com/"

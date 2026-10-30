@@ -1,0 +1,1195 @@
+﻿<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AIndigo v1.00.00-beta | Enterprise AI Security & FinOps Control Plane</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            charcoal: {
+              950: '#090A0F',
+              900: '#10121A',
+              800: '#171A26',
+              700: '#232838',
+            },
+            gold: {
+              400: '#FBBF24',
+              500: '#F59E0B',
+              600: '#D97706',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #090A0F; color: #F8FAFC; }
+    .gold-glow { box-shadow: 0 0 25px -5px rgba(245, 158, 11, 0.22); }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #090A0F; }
+    ::-webkit-scrollbar-thumb { background: #232838; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #F59E0B; }
+  </style>
+</head>
+<body class="h-screen flex overflow-hidden font-sans antialiased selection:bg-gold-500 selection:text-black">
+
+  <!-- UPGRADE / COMMERCIAL CONTACT MODAL -->
+  <div id="contact-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-charcoal-900 border border-gold-500/50 rounded-2xl max-w-lg w-full p-6 gold-glow space-y-5">
+      <div class="flex items-center justify-between border-b border-charcoal-700 pb-4">
+        <div class="flex items-center gap-2.5">
+          <div class="p-2 rounded-lg bg-gold-500/10 border border-gold-500/30 text-gold-400">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+          </div>
+          <h3 id="modal-title" class="text-lg font-bold text-white">Upgrade to Commercial Edition</h3>
+        </div>
+        <button onclick="closeContactModal()" class="text-slate-400 hover:text-white p-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-700 transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <p id="modal-desc" class="text-sm text-slate-300 leading-relaxed"></p>
+
+      <div class="space-y-2.5">
+        <div class="flex items-center justify-between bg-charcoal-950 border border-charcoal-700 rounded-xl px-4 py-3">
+          <span class="text-xs font-medium text-slate-400 flex items-center gap-2">
+            <i data-lucide="mail" class="w-4 h-4 text-gold-400"></i> Direct Email
+          </span>
+          <a id="contact-email" href="mailto:sales@aindigo.dev" class="text-sm font-semibold text-gold-400 hover:underline">sales@aindigo.dev</a>
+        </div>
+        <div class="flex items-center justify-between bg-charcoal-950 border border-charcoal-700 rounded-xl px-4 py-3">
+          <span class="text-xs font-medium text-slate-400 flex items-center gap-2">
+            <i data-lucide="phone" class="w-4 h-4 text-emerald-400"></i> Direct Mobile
+          </span>
+          <a id="contact-phone" href="tel:+919876543210" class="text-sm font-semibold text-white hover:text-gold-400">+91 98765 43210</a>
+        </div>
+        <div class="flex items-center justify-between bg-charcoal-950 border border-charcoal-700 rounded-xl px-4 py-3">
+          <span class="text-xs font-medium text-slate-400 flex items-center gap-2">
+            <i data-lucide="message-circle" class="w-4 h-4 text-emerald-400"></i> WhatsApp Business
+          </span>
+          <span id="contact-wa-text" class="text-sm font-semibold text-emerald-400">+91 98765 43210</span>
+        </div>
+      </div>
+
+      <a id="contact-wa-link" href="https://wa.me/919876543210" target="_blank" class="w-full py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm flex items-center justify-center gap-2 transition">
+        <i data-lucide="message-square" class="w-4 h-4"></i> Chat with Licensing Team on WhatsApp
+      </a>
+    </div>
+  </div>
+
+  <!-- SIDEBAR NAVIGATION -->
+  <aside class="w-64 bg-charcoal-900 border-r border-charcoal-700 flex flex-col justify-between shrink-0">
+    <div>
+      <!-- Brand Header -->
+      <div class="h-16 px-5 flex items-center justify-between border-b border-charcoal-700">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-gold-400 to-gold-600 flex items-center justify-center text-black font-extrabold shadow-md">
+            <i data-lucide="shield-check" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="font-bold text-white tracking-tight">AIndigo</span>
+              <span class="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-gold-500/15 text-gold-400 border border-gold-500/30">v1.00.00</span>
+            </div>
+            <p class="text-[11px] text-slate-400">AI Security & FinOps Gateway</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Navigation Links (8 Views) -->
+      <nav class="p-3 space-y-1">
+        <div class="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-slate-500">Core Control Plane</div>
+        <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition bg-gold-500/15 text-gold-400 border border-gold-500/30">
+          <span class="flex items-center gap-2.5"><i data-lucide="activity" class="w-4 h-4"></i> Overview & Ledger</span>
+        </button>
+        <button onclick="switchTab('onboarding')" id="nav-onboarding" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-charcoal-800 transition">
+          <span class="flex items-center gap-2.5"><i data-lucide="cpu" class="w-4 h-4"></i> 1. Node Pairing & Auth</span>
+          <span id="sidebar-pair-dot" class="w-2 h-2 rounded-full bg-amber-400"></span>
+        </button>
+        <button onclick="switchTab('keys')" id="nav-keys" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-charcoal-800 transition">
+          <span class="flex items-center gap-2.5"><i data-lucide="key-round" class="w-4 h-4"></i> 2. Virtual Key Vault</span>
+        </button>
+        <button onclick="switchTab('sandbox')" id="nav-sandbox" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-charcoal-800 transition">
+          <span class="flex items-center gap-2.5"><i data-lucide="terminal" class="w-4 h-4"></i> 3. Live Proxy Inspector</span>
+        </button>
+
+        <div class="px-3 pt-3 pb-1 text-[10px] font-mono uppercase tracking-wider text-slate-500">SecOps & Documentation</div>
+        <button onclick="switchTab('siem')" id="nav-siem" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-charcoal-800 transition">
+          <span class="flex items-center gap-2.5"><i data-lucide="radar" class="w-4 h-4"></i> Security & SIEM Logs</span>
+          <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">PUSH/PULL</span>
+        </button>
+        <button onclick="switchTab('help')" id="nav-help" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-charcoal-800 transition">
+          <span class="flex items-center gap-2.5"><i data-lucide="book-open" class="w-4 h-4"></i> Help & Setup Guide</span>
+        </button>
+        <button onclick="switchTab('about')" id="nav-about" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-charcoal-800 transition">
+          <span class="flex items-center gap-2.5"><i data-lucide="info" class="w-4 h-4"></i> About Architecture</span>
+        </button>
+        <button onclick="switchTab('tiers')" id="nav-tiers" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-charcoal-800 transition">
+          <span class="flex items-center gap-2.5"><i data-lucide="layers" class="w-4 h-4"></i> Editions & Licensing</span>
+        </button>
+      </nav>
+    </div>
+
+    <!-- Bottom Node Status Card -->
+    <div class="p-3.5 m-3 rounded-xl bg-charcoal-950 border border-charcoal-700 space-y-2.5">
+      <div class="flex items-center justify-between">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-slate-400">Data Plane Proxy</span>
+        <span class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Port 8080</span>
+      </div>
+      <div class="text-xs text-slate-300 truncate" id="sidebar-org-name">Org: Community Sandbox</div>
+      <div class="w-full bg-charcoal-800 h-1.5 rounded-full overflow-hidden">
+        <div id="quota-progress-bar" class="bg-gold-500 h-full transition-all duration-300" style="width: 1%"></div>
+      </div>
+      <div class="flex justify-between text-[11px] font-mono text-slate-400">
+        <span>Monthly Quota</span>
+        <span id="sidebar-quota-text">0 / 10,000</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN CONTENT AREA -->
+  <div class="flex-1 flex flex-col overflow-hidden">
+    <!-- Top Header Bar -->
+    <header class="h-16 bg-charcoal-900/80 backdrop-blur-md border-b border-charcoal-700 px-8 flex items-center justify-between shrink-0">
+      <div class="flex items-center gap-3">
+        <h1 id="page-title" class="text-lg font-bold text-white">Executive Telemetry & Merkle Audit Ledger</h1>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="pair-status-badge" class="text-xs font-mono px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span> Unpaired Node
+        </div>
+        <button onclick="switchTab('siem')" class="text-xs font-medium px-3 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-700 text-slate-200 border border-charcoal-700 transition flex items-center gap-1.5">
+          <i data-lucide="download" class="w-3.5 h-3.5 text-gold-400"></i> Export SIEM Logs
+        </button>
+        <button onclick="switchTab('tiers')" class="text-xs font-semibold px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-gold-500 to-gold-600 text-black hover:opacity-95 transition flex items-center gap-1.5 shadow">
+          <i data-lucide="zap" class="w-3.5 h-3.5"></i> COMMUNITY BETA
+        </button>
+      </div>
+    </header>
+
+    <!-- Scrollable Views Container -->
+    <main class="flex-1 overflow-y-auto p-8 space-y-6">
+
+      <!-- ========================================== -->
+      <!-- TAB 1: OVERVIEW & MERKLE AUDIT LEDGER      -->
+      <!-- ========================================== -->
+      <section id="tab-dashboard" class="space-y-6">
+        <div class="bg-gradient-to-r from-charcoal-900 via-charcoal-800 to-charcoal-900 border border-gold-500/40 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
+          <div class="flex items-center gap-4">
+            <div class="p-3 rounded-xl bg-gold-500/10 border border-gold-500/30 text-gold-400">
+              <i data-lucide="rocket" class="w-6 h-6"></i>
+            </div>
+            <div>
+              <h2 class="text-sm font-bold text-white">Welcome to AIndigo v1.00.00 Commercial Beta</h2>
+              <p class="text-xs text-slate-400 mt-0.5">Pair your local Data Plane (Port 8080), mint a Virtual Key for your LLM provider, and route your AI agents through your zero-knowledge shield.</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <button onclick="switchTab('onboarding')" class="px-3.5 py-2 rounded-xl bg-charcoal-700 hover:bg-charcoal-600 text-xs font-semibold text-white transition">1. Pair Node</button>
+            <button onclick="switchTab('keys')" class="px-3.5 py-2 rounded-xl bg-gold-500 hover:bg-gold-400 text-xs font-bold text-black transition">2. Mint Virtual Key</button>
+            <button onclick="switchTab('help')" class="px-3.5 py-2 rounded-xl bg-charcoal-800 border border-charcoal-700 hover:border-gold-500/50 text-xs font-medium text-slate-200 transition">Setup Guide</button>
+          </div>
+        </div>
+
+        <!-- 4 KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-5 space-y-2">
+            <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+              <span>MONTHLY COMMUNITY QUOTA</span>
+              <i data-lucide="gauge" class="w-4 h-4 text-gold-400"></i>
+            </div>
+            <div id="stat-requests" class="text-2xl font-extrabold text-white font-mono">0 / 10,000</div>
+            <p class="text-[11px] text-slate-400">Governed Agent & IDE Turns</p>
+          </div>
+
+          <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-5 space-y-2">
+            <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+              <span>SECRETS VAULTED (DLP)</span>
+              <i data-lucide="shield-alert" class="w-4 h-4 text-emerald-400"></i>
+            </div>
+            <div id="stat-secrets" class="text-2xl font-extrabold text-emerald-400 font-mono">0</div>
+            <p class="text-[11px] text-slate-400">PII, Keys & Hosts Scrubbed in Flight</p>
+          </div>
+
+          <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-5 space-y-2">
+            <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+              <span>GOVERNED LLM SPEND</span>
+              <i data-lucide="credit-card" class="w-4 h-4 text-sky-400"></i>
+            </div>
+            <div id="stat-spend" class="text-2xl font-extrabold text-white font-mono">$0.0000</div>
+            <p class="text-[11px] text-slate-400">Real-Time Token Cost Tracking</p>
+          </div>
+
+          <div onclick="openContactModal('Smart 80% FinOps Auto-Downgrader', 'Automatically shifts flagship models to fast tier at 80% budget cap, saving ~75% without breaking developer IDEs.')" class="bg-charcoal-900 border border-charcoal-700 hover:border-gold-500/50 rounded-2xl p-5 space-y-2 cursor-pointer transition">
+            <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+              <span>FINOPS AUTO-SAVINGS</span>
+              <span class="text-[10px] font-mono px-1.5 py-0.5 rounded bg-gold-500/15 text-gold-400 border border-gold-500/30">PRO</span>
+            </div>
+            <div id="stat-savings" class="text-2xl font-extrabold text-gold-400 font-mono">$0.0000</div>
+            <p class="text-[11px] text-slate-400">80% Budget Downshift Governor</p>
+          </div>
+        </div>
+
+        <!-- Zero-Knowledge Merkle Audit Ledger Table -->
+        <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl overflow-hidden">
+          <div class="px-6 py-4 border-b border-charcoal-700 flex items-center justify-between">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="file-check-2" class="w-4 h-4 text-gold-400"></i>
+                Zero-Knowledge HMAC-SHA256 Merkle Audit Ledger
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Cryptographically chained receipts synced from your Data Plane. Zero raw prompt text is ever stored in the cloud.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="switchTab('siem')" class="px-3 py-1.5 rounded-lg bg-gold-500/10 hover:bg-gold-500/20 text-xs font-medium text-gold-400 border border-gold-500/30 transition">
+                Open SIEM Center
+              </button>
+              <button onclick="refreshDashboard()" class="px-3 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-700 text-xs font-medium text-slate-200 flex items-center gap-1.5 border border-charcoal-700 transition">
+                <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Sync
+              </button>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-charcoal-700 text-[11px] font-semibold uppercase tracking-wider text-slate-400 bg-charcoal-950/60">
+                  <th class="py-3.5 px-6">Receipt ID</th>
+                  <th class="py-3.5 px-4">Agent / Department</th>
+                  <th class="py-3.5 px-4">Routed Model</th>
+                  <th class="py-3.5 px-4">Turn Cost</th>
+                  <th class="py-3.5 px-4">DLP Vaulted Categories</th>
+                  <th class="py-3.5 px-6">HMAC-SHA256 Merkle Signature</th>
+                </tr>
+              </thead>
+              <tbody id="ledger-tbody" class="divide-y divide-charcoal-800 text-xs font-mono"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 2: NODE PAIRING & ACCOUNT AUTH         -->
+      <!-- ========================================== -->
+      <section id="tab-onboarding" class="hidden space-y-6 max-w-4xl">
+        <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-5">
+          <div class="border-b border-charcoal-700 pb-4">
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="user-check" class="w-5 h-5 text-gold-400"></i>
+              Register or Sign In to Pair Your Local Data Plane (Port 8080)
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Your registered email is the administrative owner. Once signed in, AIndigo automatically pushes your Cluster Sync Secret to your local Data Plane on Port 8080.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Organization / Workspace Name</label>
+              <input type="text" id="auth-org" value="My Dev Workspace" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Valid Work Email *</label>
+              <input type="email" id="auth-email" placeholder="you@company.com" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">Password *</label>
+              <input type="password" id="auth-pass" placeholder="••••••••" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-3">
+            <button onclick="registerAccount()" class="px-5 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 text-black font-bold text-xs flex items-center gap-2 transition">
+              <i data-lucide="sparkles" class="w-4 h-4"></i> Sign Up & Auto-Pair Local Proxy
+            </button>
+            <button onclick="loginAccount()" class="px-5 py-2.5 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-white font-semibold text-xs border border-charcoal-700 flex items-center gap-2 transition">
+              <i data-lucide="log-in" class="w-4 h-4"></i> Log In to Existing Workspace
+            </button>
+          </div>
+
+          <div class="space-y-2">
+            <label class="block text-xs font-mono uppercase text-slate-400">Node Pairing & Docker Deployment Output</label>
+            <pre id="auth-output" class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 text-xs font-mono text-emerald-400 whitespace-pre-wrap break-all">Enter a valid work email above and click "Sign Up & Auto-Pair Local Proxy" to link Port 8080 and generate your Docker run command.</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 3: VIRTUAL KEY VAULT                   -->
+      <!-- ========================================== -->
+      <section id="tab-keys" class="hidden space-y-6 max-w-4xl">
+        <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-5">
+          <div class="border-b border-charcoal-700 pb-4">
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <i data-lucide="key-round" class="w-5 h-5 text-gold-400"></i>
+              Mint AES-256-GCM Virtual Key (Universal BYOK Vault)
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Select any upstream LLM provider, paste your real API key (such as your Google AI Studio key), and generate a Virtual Key (<code class="text-gold-400">vk-aindigo-...</code>) for your agents. Multiple agents can run on a single Data Plane using separate Virtual Keys.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">1. Upstream LLM Provider</label>
+              <select id="mint-provider" onchange="populateModelsForProvider()" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
+                <option value="gemini">Google AI Studio (Gemini)</option>
+                <option value="anthropic">Anthropic (Claude)</option>
+                <option value="openai">OpenAI (GPT)</option>
+                <option value="groq">Groq LPU Inference</option>
+                <option value="mistral">Mistral AI</option>
+                <option value="deepseek">DeepSeek (R1 / V3)</option>
+                <option value="bedrock">AWS Bedrock (VPC)</option>
+                <option value="azure_openai">Azure OpenAI Service</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">2. Default Target Model Version</label>
+              <select id="mint-model" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500"></select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">3. Agent / Service Account Tag</label>
+              <input type="text" id="mint-dept" value="core_engineering" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">4. Monthly Budget Cap ($ USD)</label>
+              <input type="number" id="mint-budget" value="100" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1.5">5. DLP Security Policy</label>
+              <select id="mint-dlp" onchange="handleDlpModeChange()" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
+                <option value="redact" selected>Standard Redact & Vault (Community)</option>
+                <option value="block_locked">Strict Block Mode (SME / Pro)</option>
+                <option value="custom_locked">Custom IP Regex Vault (Enterprise)</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-slate-300 mb-1.5">6. Actual Upstream Provider API Key (Encrypted locally via AES-256-GCM)</label>
+            <input type="text" id="mint-key" value="sk-ant-live-mock-secure-credential" placeholder="Paste AIzaSy..., sk-ant-..., sk-proj-..., or mock-..." class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm font-mono text-gold-400 focus:outline-none focus:border-gold-500">
+          </div>
+
+          <button onclick="mintVirtualKey()" class="w-full py-3 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:opacity-95 text-black font-bold text-xs uppercase tracking-wider transition shadow-lg">
+            Encrypt Upstream Key & Mint AIndigo Virtual Key
+          </button>
+
+          <div class="space-y-2">
+            <label class="block text-xs font-mono uppercase text-slate-400">Minted Virtual Key Output</label>
+            <pre id="mint-output" class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 text-xs font-mono text-emerald-400 whitespace-pre-wrap break-all">Your generated vk-aindigo-... key will appear here. Copy it into your AI Agent or IDE config!</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 4: LIVE SANDBOX & IDE INSPECTOR        -->
+      <!-- ========================================== -->
+      <section id="tab-sandbox" class="hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-4">
+            <div class="border-b border-charcoal-700 pb-3">
+              <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="play-circle" class="w-5 h-5 text-gold-400"></i>
+                Live Data Plane Proxy Inspector (Port 8080)
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Send a test prompt containing sensitive secrets through your local Data Plane to verify real-time DLP scrubbing and Merkle receipt generation.</p>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Active Virtual Key</label>
+              <input type="text" id="play-vkey" value="vk-aindigo-dev-local-9999" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2 text-xs font-mono text-gold-400">
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Simulated Agent Prompt (With AWS Key, Aadhaar & Internal Host)</label>
+              <textarea id="play-prompt" rows="3" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl p-3.5 text-xs font-mono text-slate-200">Connect to prod-db.internal.corp with AWS key AKIAIOSFODNN7EXAMPLE and Aadhaar 4567 9345 6934</textarea>
+            </div>
+
+            <button onclick="sendPlaygroundRequest()" class="w-full py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 text-black font-bold text-xs transition">
+              Send Governed Request Through Local Data Plane
+            </button>
+
+            <div>
+              <label class="block text-xs font-mono uppercase text-slate-400 mb-1">Live Governance & DLP Vault Response</label>
+              <pre id="play-output" class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 text-xs font-mono text-emerald-400 max-h-64 overflow-y-auto whitespace-pre-wrap break-all">Click above to inspect the live response...</pre>
+            </div>
+          </div>
+
+          <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-4">
+            <div class="border-b border-charcoal-700 pb-3">
+              <h3 class="text-base font-bold text-white flex items-center gap-2">
+                <i data-lucide="terminal" class="w-5 h-5 text-gold-400"></i>
+                Quick Terminal Test (PowerShell / cURL)
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Test your Google AI Studio or OpenAI Virtual Key directly from your workstation terminal:</p>
+            </div>
+            <pre class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 text-[11px] font-mono text-slate-300 overflow-x-auto">$body = @{
+  model = "gemini-2.5-flash"
+  messages = @(
+    @{ role = "user"; content = "DB host is db.internal.corp and key is AKIAIOSFODNN7EXAMPLE" }
+  )
+} | ConvertTo-Json -Depth 5
+
+Invoke-RestMethod -Uri "http://127.0.0.1:8080/v1/chat/completions" `
+  -Method Post `
+  -Headers @{
+    "Authorization" = "Bearer vk-aindigo-your-minted-key"
+    "Content-Type"  = "application/json"
+  } -Body $body | ConvertTo-Json -Depth 6</pre>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 5: SECURITY & SIEM LOGS (PUSH & PULL)  -->
+      <!-- ========================================== -->
+      <section id="tab-siem" class="hidden space-y-6">
+        <!-- Top SIEM Action Bar: Direct UI Export + Pull API + Push Webhook -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <!-- Left: Push to Customer SIEM (Webhook Streamer) -->
+          <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-4">
+            <div class="flex items-center justify-between border-b border-charcoal-700 pb-3">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                  <i data-lucide="send" class="w-4 h-4 text-gold-400"></i>
+                  1. SIEM Push Integration (Real-Time Webhook Forwarder)
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">Automatically push every cryptographically signed AI agent receipt to Splunk HEC, Datadog, Sentinel, or Elastic.</p>
+              </div>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">PUSH MODE</span>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div class="md:col-span-2">
+                <label class="block text-xs font-medium text-slate-300 mb-1">Customer SIEM Intake Webhook URL</label>
+                <input type="text" id="siem-webhook-url" placeholder="https://http-inputs.splunkcloud.com/services/collector" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3 py-2 text-xs font-mono text-white">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Payload Format</label>
+                <select id="siem-format" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3 py-2 text-xs text-white">
+                  <option value="json">JSON (Datadog / Splunk)</option>
+                  <option value="cef">CEF (Sentinel / QRadar / ArcSight)</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-medium text-slate-300 mb-1">Optional Authorization Header (e.g. <code class="text-gold-400">Splunk &lt;HEC_TOKEN&gt;</code> or <code class="text-gold-400">Bearer &lt;API_KEY&gt;</code>)</label>
+              <input type="password" id="siem-auth-header" placeholder="Splunk 00000000-0000-0000-0000-000000000000" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3 py-2 text-xs font-mono text-white">
+            </div>
+
+            <div class="flex flex-wrap gap-2.5">
+              <button onclick="saveSiemConfig()" class="px-4 py-2 rounded-xl bg-gold-500 hover:bg-gold-400 text-black font-bold text-xs transition">
+                Save Push Webhook Config
+              </button>
+              <button onclick="testSiemPush()" class="px-4 py-2 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-slate-200 border border-charcoal-700 font-semibold text-xs transition">
+                Dispatch Test Event to SIEM
+              </button>
+            </div>
+
+            <pre id="siem-push-output" class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-3.5 text-[11px] font-mono text-emerald-400 max-h-40 overflow-y-auto whitespace-pre-wrap break-all">Configure a webhook above or click "Dispatch Test Event to SIEM" to inspect the live Zero-Knowledge SIEM payload.</pre>
+          </div>
+
+          <!-- Right: Pull by Customer SIEM & One-Click UI Export -->
+          <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-4 flex flex-col justify-between">
+            <div class="space-y-4">
+              <div class="flex items-center justify-between border-b border-charcoal-700 pb-3">
+                <div>
+                  <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i data-lucide="download-cloud" class="w-4 h-4 text-gold-400"></i>
+                    2. SIEM Pull API & Direct UI File Export
+                  </h3>
+                  <p class="text-xs text-slate-400 mt-0.5">Customer SOC collectors can poll the REST endpoint directly, or compliance auditors can download logs below.</p>
+                </div>
+                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/15 text-sky-400 border border-sky-500/30">PULL & EXPORT</span>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1.5">One-Click Compliance Log Download (From UI)</label>
+                <div class="grid grid-cols-3 gap-2.5">
+                  <a href="/api/v1/siem/logs?format=json" download="aindigo-siem-logs.json" class="py-2.5 px-3 rounded-xl bg-charcoal-800 hover:bg-gold-500 hover:text-black text-center text-xs font-semibold text-gold-400 border border-gold-500/30 transition">
+                    Download .JSON
+                  </a>
+                  <a href="/api/v1/siem/logs?format=csv" download="aindigo-siem-logs.csv" class="py-2.5 px-3 rounded-xl bg-charcoal-800 hover:bg-emerald-500 hover:text-black text-center text-xs font-semibold text-emerald-400 border border-emerald-500/30 transition">
+                    Download .CSV
+                  </a>
+                  <a href="/api/v1/siem/logs?format=cef" download="aindigo-siem-logs.cef" class="py-2.5 px-3 rounded-xl bg-charcoal-800 hover:bg-sky-500 hover:text-black text-center text-xs font-semibold text-sky-400 border border-sky-500/30 transition">
+                    Download .CEF
+                  </a>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Customer SIEM Collector Pull Polling Command (cURL)</label>
+                <pre id="siem-pull-cmd" class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-3 text-[11px] font-mono text-slate-300 overflow-x-auto"># Pull JSON / CEF / CSV logs from SIEM Collector:
+curl -s "http://127.0.0.1:3000/api/v1/siem/logs?format=json&limit=200" \
+  -H "Authorization: Bearer YOUR_CLUSTER_SYNC_TOKEN"</pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Live Security Event Stream Table -->
+        <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl overflow-hidden">
+          <div class="px-6 py-4 border-b border-charcoal-700 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <i data-lucide="shield-alert" class="w-4 h-4 text-gold-400"></i>
+                Live AI Agent Security & Telemetry Event Stream
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">Inspect every AI agent network transaction, DLP secret redaction, token usage, and Merkle HMAC verification hash.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <select id="siem-filter-select" onchange="loadSiemLogsTable()" class="bg-charcoal-950 border border-charcoal-700 rounded-lg px-3 py-1.5 text-xs text-slate-200">
+                <option value="all">All Governed Traffic</option>
+                <option value="dlp">Only DLP Violations / Secret Redactions</option>
+              </select>
+              <button onclick="loadSiemLogsTable()" class="px-3 py-1.5 rounded-lg bg-charcoal-800 hover:bg-charcoal-700 text-xs font-medium text-slate-200 border border-charcoal-700 transition">
+                Refresh Logs
+              </button>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left border-collapse">
+              <thead>
+                <tr class="border-b border-charcoal-700 text-[11px] font-semibold uppercase tracking-wider text-slate-400 bg-charcoal-950/60">
+                  <th class="py-3 px-4">Timestamp</th>
+                  <th class="py-3 px-4">Receipt ID</th>
+                  <th class="py-3 px-4">Service Account / Dept</th>
+                  <th class="py-3 px-4">Requested → Routed</th>
+                  <th class="py-3 px-4">Tokens</th>
+                  <th class="py-3 px-4">DLP Vault Flags</th>
+                  <th class="py-3 px-4">Merkle HMAC</th>
+                </tr>
+              </thead>
+              <tbody id="siem-logs-tbody" class="divide-y divide-charcoal-800 text-xs font-mono"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 6: HELP & SETUP GUIDE                  -->
+      <!-- ========================================== -->
+      <section id="tab-help" class="hidden space-y-6 max-w-5xl">
+        <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-6">
+          <div class="border-b border-charcoal-700 pb-4">
+            <h2 class="text-lg font-bold text-white flex items-center gap-2">
+              <i data-lucide="book-open" class="w-5 h-5 text-gold-400"></i>
+              Step-by-Step Onboarding & AI Agent Integration Guide
+            </h2>
+            <p class="text-xs text-slate-400 mt-1">Follow these 4 steps to route your custom AI agents, RAG pipelines, or IDEs through AIndigo's local Data Plane proxy.</p>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 space-y-2">
+              <div class="text-xs font-bold text-gold-400 uppercase font-mono">Step 1: Pair Your Local Data Plane</div>
+              <p class="text-xs text-slate-300 leading-relaxed">Open the <strong>1. Node Pairing & Auth</strong> tab and sign up with your work email. This links your local Data Plane proxy (<code class="text-emerald-400">http://127.0.0.1:8080</code>) to your Cloud Control Plane account using a cryptographic Cluster Sync Secret.</p>
+            </div>
+            <div class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 space-y-2">
+              <div class="text-xs font-bold text-gold-400 uppercase font-mono">Step 2: Swap Raw LLM Key for Virtual Key</div>
+              <p class="text-xs text-slate-300 leading-relaxed">Open the <strong>2. Virtual Key Vault</strong> tab. Paste your actual Google AI Studio, OpenAI, or Anthropic API key. AIndigo encrypts your real key in its local AES-256-GCM vault and gives you a safe <code class="text-gold-400">vk-aindigo-...</code> Virtual Key.</p>
+            </div>
+            <div class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 space-y-2">
+              <div class="text-xs font-bold text-gold-400 uppercase font-mono">Step 3: Point Your AI Agent Base URL to 8080</div>
+              <p class="text-xs text-slate-300 leading-relaxed">You do <strong>not</strong> need to route all corporate network traffic through AIndigo. Only set your AI agent or SDK's <code class="text-emerald-400">BASE_URL</code> to <code class="text-emerald-400">http://127.0.0.1:8080/v1</code> and pass your <code class="text-gold-400">vk-aindigo-...</code> key.</p>
+            </div>
+            <div class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 space-y-2">
+              <div class="text-xs font-bold text-gold-400 uppercase font-mono">Step 4: Multi-Agent & SIEM Monitoring</div>
+              <p class="text-xs text-slate-300 leading-relaxed">One Data Plane handles dozens of different AI agents and service accounts simultaneously—just mint a unique Virtual Key per agent. Export or stream all compliance receipts from the <strong>Security & SIEM Logs</strong> tab.</p>
+            </div>
+          </div>
+
+          <!-- Code Examples for Popular Tools -->
+          <div class="space-y-3 pt-2">
+            <h3 class="text-sm font-bold text-white">Copy-Paste Configuration for Popular AI Tools & SDKs</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 space-y-2">
+                <div class="font-bold text-gold-400">A. Cursor / Continue.dev / Cline (VS Code)</div>
+                <pre class="font-mono text-[11px] text-slate-300 overflow-x-auto">OpenAI / Custom Base URL: http://127.0.0.1:8080/v1
+API Key:                  vk-aindigo-your-minted-key
+Model Name:               gemini-2.5-flash</pre>
+              </div>
+              <div class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 space-y-2">
+                <div class="font-bold text-emerald-400">B. Claude Code CLI / Anthropic Agents</div>
+                <pre class="font-mono text-[11px] text-slate-300 overflow-x-auto">export ANTHROPIC_BASE_URL="http://127.0.0.1:8080"
+export ANTHROPIC_API_KEY="vk-aindigo-your-minted-key"
+claude</pre>
+              </div>
+              <div class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 space-y-2">
+                <div class="font-bold text-sky-400">C. Node.js / TypeScript Custom Agent or RAG</div>
+                <pre class="font-mono text-[11px] text-slate-300 overflow-x-auto">import OpenAI from "openai";
+const ai = new OpenAI({
+  apiKey: "vk-aindigo-your-minted-key",
+  baseURL: "http://127.0.0.1:8080/v1"
+});</pre>
+              </div>
+              <div class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 space-y-2">
+                <div class="font-bold text-amber-400">D. Python LangChain / CrewAI / AutoGen</div>
+                <pre class="font-mono text-[11px] text-slate-300 overflow-x-auto">from openai import OpenAI
+client = OpenAI(
+    api_key="vk-aindigo-your-minted-key",
+    base_url="http://127.0.0.1:8080/v1"
+)</pre>
+              </div>
+            </div>
+          </div>
+
+          <!-- Compatibility Matrix -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div class="bg-emerald-950/20 border border-emerald-500/30 rounded-xl p-4 space-y-1.5">
+              <div class="text-xs font-bold text-emerald-400">✅ Supported Tools (Open BYOK / Configurable Base URL)</div>
+              <p class="text-xs text-slate-300">Custom AI Agents, RAG Pipelines, LangChain, LlamaIndex, CrewAI, Cursor, Continue.dev, Claude Code CLI, Aider, OpenAI/Anthropic/Gemini SDKs, internal microservices.</p>
+            </div>
+            <div class="bg-rose-950/20 border border-rose-500/30 rounded-xl p-4 space-y-1.5">
+              <div class="text-xs font-bold text-rose-400">❌ Unsupported Tools (Closed Black-Box SaaS Apps)</div>
+              <p class="text-xs text-slate-300">Devin Desktop/Web, Canva built-in AI, standard GitHub Copilot without custom proxy support, or consumer web portals that hardcode their own backend URLs.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 7: ABOUT ARCHITECTURE                  -->
+      <!-- ========================================== -->
+      <section id="tab-about" class="hidden space-y-6 max-w-5xl">
+        <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-6">
+          <div class="border-b border-charcoal-700 pb-4 flex items-center justify-between">
+            <div>
+              <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                <i data-lucide="shield" class="w-5 h-5 text-gold-400"></i>
+                About AIndigo: Split-Plane AI Security & FinOps Gateway
+              </h2>
+              <p class="text-xs text-slate-400 mt-1">Built at the intersection of an AI Security Tool, an API Gateway, and a high-speed Reverse Proxy.</p>
+            </div>
+            <span class="text-xs font-mono px-3 py-1 rounded-lg bg-gold-500/15 text-gold-400 border border-gold-500/30">Release v1.00.00-beta</span>
+          </div>
+
+          <div class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 font-mono text-xs text-slate-300 overflow-x-auto">[Internal AI Agents / IDEs / RAG Apps]
+          │  (Uses vk-aindigo-... Virtual Key)
+          ▼
+[AIndigo Local Data Plane Proxy — Port 8080 (Inside Customer VPC or Workstation)]
+  ├─ 1. Deterministic DLP Engine: Scrubs AWS Keys, Aadhaar, SSN, & Internal Hosts into synthetic tokens
+  ├─ 2. FinOps Budget Governor: Tracks spend & downshifts flagship models at 80% budget threshold
+  ├─ 3. AES-256-GCM Key Vault: Decrypts real LLM key in memory for microseconds
+  └─ 4. Signs Zero-Knowledge HMAC-SHA256 Merkle Receipt
+          │
+          ├────────────────────────────────────────► [Upstream LLMs: Gemini / OpenAI / Anthropic]
+          │                                            (Sees ONLY scrubbed synthetic placeholders)
+          ▼
+[AIndigo Cloud Control Plane — Port 3000 & Customer SIEM (Splunk / Datadog / Sentinel)]
+  (Receives ONLY cryptographic receipts, token metrics & DLP category flags — ZERO raw prompt text)</pre>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 space-y-1.5">
+              <div class="font-bold text-gold-400">1. Reversible Ephemeral Crypto-Vaulting (DLP)</div>
+              <p class="text-slate-300 leading-relaxed">Before a prompt leaves your perimeter, sensitive credentials, PII, and internal hostnames are replaced with realistic synthetic placeholders (`AKIA0000VAULTKEY0001`). When the LLM responds, AIndigo re-hydrates the real values seamlessly.</p>
+            </div>
+            <div class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 space-y-1.5">
+              <div class="font-bold text-emerald-400">2. Zero-Knowledge Merkle Audit Chain</div>
+              <p class="text-slate-300 leading-relaxed">Every AI turn is hashed into an HMAC-SHA256 Merkle chain (`previous_receipt_hash` → `receipt_hmac`). Security auditors and SIEM platforms get tamper-evident cryptographic proof of governance without storing proprietary source code in the cloud.</p>
+            </div>
+            <div class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 space-y-1.5">
+              <div class="font-bold text-sky-400">3. Non-Intrusive Infrastructure Placement</div>
+              <p class="text-slate-300 leading-relaxed">Deployed as a lightweight sidecar or internal VPC container (`ai-gateway.internal.corp:8080`). Normal corporate web traffic bypasses AIndigo; only outbound AI agent calls route through the gateway.</p>
+            </div>
+            <div class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 space-y-1.5">
+              <div class="font-bold text-amber-400">4. Multi-Agent & Multi-Provider Scalability</div>
+              <p class="text-slate-300 leading-relaxed">A single Data Plane instance manages hundreds of upstream LLM keys and isolated departmental Virtual Keys across Google Gemini, Anthropic, OpenAI, Groq, Mistral, DeepSeek, and AWS Bedrock.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================== -->
+      <!-- TAB 8: 3 PRODUCT TIERS & LICENSING         -->
+      <!-- ========================================== -->
+      <section id="tab-tiers" class="hidden space-y-6">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div class="bg-charcoal-900 border-2 border-emerald-500/60 rounded-2xl p-6 flex flex-col justify-between space-y-6">
+            <div class="space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-mono font-bold uppercase px-2.5 py-1 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Active Edition</span>
+                <span class="text-sm font-mono text-slate-400">v1.00.00-beta</span>
+              </div>
+              <div>
+                <h3 class="text-xl font-extrabold text-white">1. Community Edition</h3>
+                <p class="text-xs text-slate-400 mt-1">Ideal for individual developers, beta evaluators, and small agent prototypes.</p>
+              </div>
+              <ul class="space-y-2.5 text-xs text-slate-300">
+                <li class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 shrink-0"></i> <strong>10,000 Governed Requests / mo</strong></li>
+                <li class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 shrink-0"></i> Standard DLP Crypto-Vault (Redact mode)</li>
+                <li class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 shrink-0"></i> Universal BYOK Provider Vault</li>
+                <li class="flex items-center gap-2"><i data-lucide="check-circle-2" class="w-4 h-4 text-emerald-400 shrink-0"></i> UI SIEM Export (.JSON / .CSV / .CEF)</li>
+              </ul>
+            </div>
+            <button onclick="activateCommunityTier()" class="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider transition">
+              Activate Community Beta & Get Docker Cmd
+            </button>
+          </div>
+
+          <div class="bg-charcoal-900 border border-charcoal-700 hover:border-gold-500/50 rounded-2xl p-6 flex flex-col justify-between space-y-6 transition">
+            <div class="space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-mono font-bold uppercase px-2.5 py-1 rounded-md bg-gold-500/15 text-gold-400 border border-gold-500/30">Commercial Pro</span>
+                <span class="text-xs font-mono text-slate-400">Monthly / Quarterly</span>
+              </div>
+              <div>
+                <h3 class="text-xl font-extrabold text-gold-400">2. SME / Mid-Tier Pro</h3>
+                <p class="text-xs text-slate-400 mt-1">For growing engineering teams deploying multi-agent pipelines in production.</p>
+              </div>
+              <ul class="space-y-2.5 text-xs text-slate-300">
+                <li class="flex items-center gap-2"><i data-lucide="zap" class="w-4 h-4 text-gold-400 shrink-0"></i> <strong>250,000+ Governed Requests / mo</strong></li>
+                <li class="flex items-center gap-2"><i data-lucide="zap" class="w-4 h-4 text-gold-400 shrink-0"></i> <strong>Smart 80% FinOps Auto-Downgrader</strong></li>
+                <li class="flex items-center gap-2"><i data-lucide="zap" class="w-4 h-4 text-gold-400 shrink-0"></i> Strict DLP Hard-Block & Audit Modes</li>
+                <li class="flex items-center gap-2"><i data-lucide="zap" class="w-4 h-4 text-gold-400 shrink-0"></i> 90-Day Merkle Audit Retention & Priority SLA</li>
+              </ul>
+            </div>
+            <button onclick="openContactModal('SME / Mid-Tier Pro Subscription', 'Unlock 250,000+ monthly requests, Smart 80% FinOps Auto-Downgrading, and strict DLP Block policies.')" class="w-full py-3 rounded-xl bg-charcoal-800 hover:bg-gold-500 hover:text-black text-gold-400 border border-gold-500/40 font-bold text-xs uppercase tracking-wider transition">
+              Upgrade to SME / Pro (Contact Sales)
+            </button>
+          </div>
+
+          <div class="bg-charcoal-900 border border-charcoal-700 hover:border-gold-500 rounded-2xl p-6 flex flex-col justify-between space-y-6 transition gold-glow">
+            <div class="space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-mono font-bold uppercase px-2.5 py-1 rounded-md bg-amber-500/20 text-amber-300 border border-amber-500/40">Enterprise VPC</span>
+                <span class="text-xs font-mono text-slate-400">Custom SLA</span>
+              </div>
+              <div>
+                <h3 class="text-xl font-extrabold text-white">3. Enterprise Custom</h3>
+                <p class="text-xs text-slate-400 mt-1">Dedicated multi-region clusters, SIEM streaming, and custom security engineering.</p>
+              </div>
+              <ul class="space-y-2.5 text-xs text-slate-300">
+                <li class="flex items-center gap-2"><i data-lucide="shield" class="w-4 h-4 text-amber-400 shrink-0"></i> <strong>Unlimited Volume & Multi-VPC Nodes</strong></li>
+                <li class="flex items-center gap-2"><i data-lucide="shield" class="w-4 h-4 text-amber-400 shrink-0"></i> Automated SIEM Push & Pull Connectors</li>
+                <li class="flex items-center gap-2"><i data-lucide="shield" class="w-4 h-4 text-amber-400 shrink-0"></i> Custom Corporate IP Regex & Code Vaults</li>
+                <li class="flex items-center gap-2"><i data-lucide="shield" class="w-4 h-4 text-amber-400 shrink-0"></i> Dedicated 24/7 Solutions Engineering</li>
+              </ul>
+            </div>
+            <button onclick="openContactModal('Enterprise Custom Architecture', 'Get unlimited volume, real-time SIEM log streaming, custom corporate IP DLP rules, and dedicated 24/7 SLAs.')" class="w-full py-3 rounded-xl bg-gradient-to-r from-gold-500 to-amber-600 hover:opacity-95 text-black font-extrabold text-xs uppercase tracking-wider transition">
+              Contact Enterprise Architecture Team
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script>
+    var APP_BRAND = "AIndigo";
+    var CONTACT_CONFIG = {
+      email: "sales@aindigo.dev",
+      phone: "+91 98765 43210",
+      whatsappNumber: "919876543210",
+      whatsappDisplay: "+91 98765 43210"
+    };
+
+    var DATA_PLANE_URL = "http://127.0.0.1:8080";
+    var CONTROL_PLANE_URL = window.location.origin;
+    var jwtToken = localStorage.getItem("aindigo_jwt") || "";
+    var currentTenant = null;
+
+    var MODEL_CATALOG = {
+      gemini: [
+        { id: "gemini-2.5-flash", name: "Gemini 2.5 Flash (Fast & Efficient)" },
+        { id: "gemini-2.5-pro", name: "Gemini 2.5 Pro (Flagship Reasoning)" }
+      ],
+      anthropic: [
+        { id: "claude-3-7-sonnet", name: "Claude 3.7 Sonnet (Flagship)" },
+        { id: "claude-3-5-haiku", name: "Claude 3.5 Haiku (Fast)" },
+        { id: "claude-3-opus", name: "Claude 3 Opus" }
+      ],
+      openai: [
+        { id: "gpt-4o", name: "GPT-4o (Flagship)" },
+        { id: "gpt-4o-mini", name: "GPT-4o Mini (Fast)" },
+        { id: "o3-mini", name: "OpenAI o3-mini Reasoning" }
+      ],
+      groq: [
+        { id: "llama-3.3-70b-versatile", name: "Llama 3.3 70B Ultra-Fast" }
+      ],
+      mistral: [
+        { id: "mistral-large-latest", name: "Mistral Large 2" }
+      ],
+      deepseek: [
+        { id: "deepseek-reasoner", name: "DeepSeek R1" }
+      ],
+      bedrock: [
+        { id: "anthropic.claude-3-7-sonnet-v1", name: "Bedrock Claude 3.7" }
+      ],
+      azure_openai: [
+        { id: "azure-gpt-4o-deployment", name: "Azure GPT-4o Deployment" }
+      ]
+    };
+
+    function switchTab(tabId) {
+      var tabs = ["dashboard", "onboarding", "keys", "sandbox", "siem", "help", "about", "tiers"];
+      var titles = {
+        dashboard: "Executive Telemetry & Merkle Audit Ledger",
+        onboarding: "1. Node Pairing & Account Authentication",
+        keys: "2. Virtual Key Vault (Universal BYOK)",
+        sandbox: "3. Live Proxy Inspector & Terminal Test",
+        siem: "Security & SIEM Center (Push Webhook, Pull API & UI Export)",
+        help: "Help & Step-by-Step Integration Guide",
+        about: "About AIndigo Split-Plane Security Architecture",
+        tiers: "Product Editions & Commercial Licensing"
+      };
+      for (var i = 0; i < tabs.length; i++) {
+        var t = tabs[i];
+        var el = document.getElementById("tab-" + t);
+        var btn = document.getElementById("nav-" + t);
+        if (t === tabId) {
+          el.classList.remove("hidden");
+          btn.className = "nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium transition bg-gold-500/15 text-gold-400 border border-gold-500/30";
+        } else {
+          el.classList.add("hidden");
+          btn.className = "nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-charcoal-800 transition";
+        }
+      }
+      document.getElementById("page-title").innerText = titles[tabId] || APP_BRAND;
+      if (tabId === "siem") loadSiemLogsTable();
+    }
+
+    function populateModelsForProvider() {
+      var prov = document.getElementById("mint-provider").value;
+      var models = MODEL_CATALOG[prov] || [{ id: "default", name: "Default Model" }];
+      var sel = document.getElementById("mint-model");
+      sel.innerHTML = "";
+      for (var i = 0; i < models.length; i++) {
+        var opt = document.createElement("option");
+        opt.value = models[i].id;
+        opt.text = models[i].name;
+        sel.appendChild(opt);
+      }
+    }
+
+    function handleDlpModeChange() {
+      var val = document.getElementById("mint-dlp").value;
+      if (val !== "redact") {
+        openContactModal("Strict DLP Block & Custom IP Regex Policies", "Community Edition includes Standard DLP Redaction & Vaulting. Upgrade to SME/Pro or Enterprise to enforce strict hard-blocking and custom corporate IP regexes.");
+        document.getElementById("mint-dlp").value = "redact";
+      }
+    }
+
+    function isValidEmail(email) {
+      return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    function openContactModal(title, desc) {
+      document.getElementById("modal-title").innerText = title;
+      document.getElementById("modal-desc").innerText = desc + " Reach out directly via Email, Phone, or WhatsApp to activate this tier:";
+      document.getElementById("contact-email").innerText = CONTACT_CONFIG.email;
+      document.getElementById("contact-email").href = "mailto:" + CONTACT_CONFIG.email;
+      document.getElementById("contact-phone").innerText = CONTACT_CONFIG.phone;
+      document.getElementById("contact-phone").href = "tel:" + CONTACT_CONFIG.phone.replace(/\s+/g, "");
+      document.getElementById("contact-wa-text").innerText = CONTACT_CONFIG.whatsappDisplay;
+      document.getElementById("contact-wa-link").href = "https://wa.me/" + CONTACT_CONFIG.whatsappNumber;
+      var modal = document.getElementById("contact-modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeContactModal() {
+      var modal = document.getElementById("contact-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    function authHeaders() {
+      var h = { "Content-Type": "application/json" };
+      if (jwtToken) h["Authorization"] = "Bearer " + jwtToken;
+      return h;
+    }
+
+    async function pairLocalDataPlane(tenant) {
+      var out = document.getElementById("auth-output");
+      var token = tenant.clusterSyncToken || tenant.cluster_sync_token;
+      var name = tenant.orgName || tenant.org_name;
+      var dockerCmd = 'docker run -d --name aindigo-dataplane -p 8080:8080 -e CONTROL_PLANE_URL="' + CONTROL_PLANE_URL + '" -e CLUSTER_SYNC_SECRET="' + token + '" aindigo/data-plane:v1.00.00-beta';
+      try {
+        var res = await fetch(DATA_PLANE_URL + "/v1/node/pair", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tenantId: tenant.tenantId || tenant.tenant_id,
+            orgName: name,
+            subscriptionTier: "COMMUNITY",
+            clusterSyncSecret: token,
+            monthlyRequestLimit: 10000
+          })
+        });
+        if (res.ok) {
+          var badge = document.getElementById("pair-status-badge");
+          badge.className = "text-xs font-mono px-3 py-1.5 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 flex items-center gap-2";
+          badge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400"></span> Paired with Local Proxy (8080)';
+          var dot = document.getElementById("sidebar-pair-dot");
+          if (dot) dot.className = "w-2 h-2 rounded-full bg-emerald-400";
+        }
+      } catch (e) {}
+
+      out.innerText = "✅ COMMUNITY BETA v1.00.00 ACTIVATED FOR [" + name + "]\n" +
+        "• Local Data Plane (Port 8080) Paired & Authenticated\n" +
+        "• Quota: 10,000 Governed Requests / mo | DLP: Standard Redact\n\n" +
+        "🐳 Deploy anywhere via Docker:\n" + dockerCmd;
+    }
+
+    async function activateCommunityTier() {
+      if (!currentTenant) {
+        switchTab("onboarding");
+        alert("Please Sign Up or Log In with your work email first so we can generate your unique Cluster Sync Token.");
+        document.getElementById("auth-email").focus();
+        return;
+      }
+      await pairLocalDataPlane(currentTenant);
+      switchTab("onboarding");
+      await refreshDashboard();
+    }
+
+    async function registerAccount() {
+      var emailVal = document.getElementById("auth-email").value.trim();
+      if (!isValidEmail(emailVal)) {
+        alert("Please enter a valid work email address (e.g., you@company.com).");
+        document.getElementById("auth-email").focus();
+        return;
+      }
+      var out = document.getElementById("auth-output");
+      out.innerText = "Creating workspace & pairing local Data Plane...";
+      try {
+        var res = await fetch(CONTROL_PLANE_URL + "/api/v1/auth/register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            orgName: document.getElementById("auth-org").value,
+            email: emailVal,
+            password: document.getElementById("auth-pass").value,
+            tier: "COMMUNITY"
+          })
+        });
+        var data = await res.json();
+        if (data.token) {
+          jwtToken = data.token;
+          currentTenant = data.tenant;
+          localStorage.setItem("aindigo_jwt", jwtToken);
+          await pairLocalDataPlane(data.tenant);
+          await refreshDashboard();
+        } else {
+          out.innerText = "Error: " + (data.error || JSON.stringify(data));
+        }
+      } catch (err) {
+        out.innerText = "Error: " + err.message;
+      }
+    }
+
+    async function loginAccount() {
+      var emailVal = document.getElementById("auth-email").value.trim();
+      if (!isValidEmail(emailVal)) {
+        alert("Please enter a valid work email address.");
+        document.getElementById("auth-email").focus();
+        return;
+      }
+      var out = document.getElementById("auth-output");
+      out.innerText = "Authenticating workspace...";
+      try {
+        var res = await fetch(CONTROL_PLANE_URL + "/api/v1/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: emailVal,
+            password: document.getElementById("auth-pass").value
+          })
+        });
+        var data = await res.json();
+        if (data.token) {
+          jwtToken = data.token;
+          currentTenant = data.tenant;
+          localStorage.setItem("aindigo_jwt", jwtToken);
+          await pairLocalDataPlane(data.tenant);
+          await refreshDashboard();
+        } else {
+          out.innerText = "Error: " + (data.error || JSON.stringify(data));
+        }
+      } catch (err) {
+        out.innerText = "Error: " + err.message;
+      }
+    }
+
+    async function mintVirtualKey() {
+      var out = document.getElementById("mint-output");
+      out.innerText = "Encrypting upstream key & minting Virtual Key...";
+      try {
+        var res = await fetch(DATA_PLANE_URL + "/v1/keys/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            department: document.getElementById("mint-dept").value,
+            provider: document.getElementById("mint-provider").value,
+            upstreamApiKey: document.getElementById("mint-key").value,
+            monthlyBudgetUsd: parseFloat(document.getElementById("mint-budget").value),
+            dlpMode: "redact"
+          })
+        });
+        var data = await res.json();
+        out.innerText = JSON.stringify(data, null, 2);
+        if (data.virtualKey) {
+          document.getElementById("play-vkey").value = data.virtualKey;
+        }
+      } catch (err) {
+        out.innerText = "Error connecting to local Data Plane on Port 8080: " + err.message;
+      }
+    }
+
+    async function sendPlaygroundRequest() {
+      var out = document.getElementById("play-output");
+      out.innerText = "Routing through Local Data Plane (Port 8080)...";
+      try {
+        var selectedModel = document.getElementById("mint-model").value || "gemini-2.5-flash";
+        var res = await fetch(DATA_PLANE_URL + "/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": "Bearer " + document.getElementById("play-vkey").value,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            model: selectedModel,
+            messages: [{ role: "user", content: document.getElementById("play-prompt").value }]
+          })
+        });
+        var data = await res.json();
+        out.innerText = JSON.stringify(data, null, 2);
+        setTimeout(refreshDashboard, 500);
+      } catch (err) {
+        out.innerText = "Error: " + err.message;
+      }
+    }
+
+    async function saveSiemConfig() {
+      var out = document.getElementById("siem-push-output");
+      out.innerText = "Saving SIEM Push Webhook configuration...";
+      try {
+        var res = await fetch(CONTROL_PLANE_URL + "/api/v1/siem/config", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            webhookUrl: document.getElementById("siem-webhook-url").value.trim(),
+            authHeader: document.getElementById("siem-auth-header").value.trim(),
+            format: document.getElementById("siem-format").value
+          })
+        });
+        var data = await res.json();
+        out.innerText = JSON.stringify(data, null, 2);
+      } catch (err) {
+        out.innerText = "Error: " + err.message;
+      }
+    }
+
+    async function testSiemPush() {
+      var out = document.getElementById("siem-push-output");
+      out.innerText = "Dispatching test Zero-Knowledge SIEM security event...";
+      try {
+        var res = await fetch(CONTROL_PLANE_URL + "/api/v1/siem/test-push", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({
+            webhookUrl: document.getElementById("siem-webhook-url").value.trim(),
+            authHeader: document.getElementById("siem-auth-header").value.trim(),
+            format: document.getElementById("siem-format").value
+          })
+        });
+        var data = await res.json();
+        out.innerText = JSON.stringify(data, null, 2);
+      } catch (err) {
+        out.innerText = "Error: " + err.message;
+      }
+    }
+
+    async function loadSiemLogsTable() {
+      try {
+        var filter = document.getElementById("siem-filter-select").value || "all";
+        var res = await fetch(CONTROL_PLANE_URL + "/api/v1/siem/logs?format=json&limit=200&filter=" + filter, { headers: authHeaders() });
+        var data = await res.json();
+        var tbody = document.getElementById("siem-logs-tbody");
+        if (!data.events || data.events.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="7" class="py-8 text-center text-slate-500 font-sans">No matching security events found. Send a test prompt in "3. Live Proxy Inspector" to generate telemetry!</td></tr>';
+          return;
+        }
+        var html = "";
+        for (var i = 0; i < data.events.length; i++) {
+          var r = data.events[i];
+          var tok = (r.prompt_tokens || 0) + (r.completion_tokens || 0);
+          html += '<tr class="hover:bg-charcoal-800/60 transition">' +
+            '<td class="py-2.5 px-4 text-slate-400">' + (r.timestamp || '') + '</td>' +
+            '<td class="py-2.5 px-4 text-gold-400">' + r.receipt_id.slice(0, 14) + '...</td>' +
+            '<td class="py-2.5 px-4 text-slate-200">' + r.department + '</td>' +
+            '<td class="py-2.5 px-4 text-sky-400">' + r.model_requested + ' → ' + r.model_routed + '</td>' +
+            '<td class="py-2.5 px-4 text-slate-300">' + tok + '</td>' +
+            '<td class="py-2.5 px-4"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">' + r.dlp_flags + '</span></td>' +
+            '<td class="py-2.5 px-4 text-emerald-400">' + r.receipt_hmac.slice(0, 18) + '...</td>' +
+            '</tr>';
+        }
+        tbody.innerHTML = html;
+      } catch (e) {}
+    }
+
+    async function refreshDashboard() {
+      try {
+        var res = await fetch(CONTROL_PLANE_URL + "/api/v1/dashboard/summary", { headers: authHeaders() });
+        var data = await res.json();
+        var t = data.tenant || { org_name: "Community Sandbox", tenant_id: "acme_corp", subscription_tier: "COMMUNITY", monthly_request_limit: 10000, cluster_sync_token: "aindigo-cluster-hmac-secret-key-2026-enterprise-verified" };
+        currentTenant = t;
+
+        document.getElementById("sidebar-org-name").innerText = "Org: " + t.org_name;
+        var reqs = data.summary.total_requests_governed || 0;
+        document.getElementById("stat-requests").innerText = reqs.toLocaleString() + " / 10,000";
+        document.getElementById("sidebar-quota-text").innerText = reqs.toLocaleString() + " / 10,000";
+        var pct = Math.min(100, Math.max(1, (reqs / 10000) * 100));
+        document.getElementById("quota-progress-bar").style.width = pct + "%";
+
+        document.getElementById("stat-secrets").innerText = data.summary.prompts_with_secrets_vaulted || 0;
+        document.getElementById("stat-spend").innerText = "$" + (data.summary.total_spend_usd || 0).toFixed(4);
+        document.getElementById("stat-savings").innerText = "$" + (data.summary.total_finops_saved_usd || 0).toFixed(4);
+
+        var pullEl = document.getElementById("siem-pull-cmd");
+        if (pullEl && t.cluster_sync_token) {
+          pullEl.innerText = '# Pull JSON / CEF / CSV logs from Customer SIEM Collector:\ncurl -s "' + CONTROL_PLANE_URL + '/api/v1/siem/logs?format=json&limit=200" \\\n  -H "Authorization: Bearer ' + t.cluster_sync_token + '"';
+        }
+
+        var tbody = document.getElementById("ledger-tbody");
+        if (!data.recentCryptographicReceipts || data.recentCryptographicReceipts.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" class="py-8 text-center text-slate-500 font-sans">No cryptographic receipts logged yet. Open "3. Live Proxy Inspector" in the sidebar to fire a test prompt!</td></tr>';
+          return;
+        }
+
+        var rowsHtml = "";
+        for (var i = 0; i < data.recentCryptographicReceipts.length; i++) {
+          var r = data.recentCryptographicReceipts[i];
+          rowsHtml += '<tr class="hover:bg-charcoal-800/60 transition">' +
+            '<td class="py-3 px-6 text-gold-400">' + r.receipt_id.slice(0, 16) + '...</td>' +
+            '<td class="py-3 px-4 text-slate-200">' + r.department + '</td>' +
+            '<td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-charcoal-800 text-sky-400 border border-charcoal-700">' + r.model_routed + '</span></td>' +
+            '<td class="py-3 px-4 text-emerald-400">$' + Number(r.cost_usd).toFixed(4) + '</td>' +
+            '<td class="py-3 px-4"><span class="px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20">' + r.dlp_flags + '</span></td>' +
+            '<td class="py-3 px-6 text-slate-400">' + r.receipt_hmac.slice(0, 22) + '...</td>' +
+            '</tr>';
+        }
+        tbody.innerHTML = rowsHtml;
+      } catch (e) {}
+    }
+
+    lucide.createIcons();
+    populateModelsForProvider();
+    refreshDashboard();
+    setInterval(refreshDashboard, 5000);
+  </script>
+</body>
+</html>

@@ -1,0 +1,19 @@
+{
+  "name": "@aindigo/shared",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rimraf dist"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "rimraf": "6.0.1",
+    "typescript": "5.7.3"
+  }
+}

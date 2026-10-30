@@ -1,0 +1,27 @@
+﻿services:
+  control-plane:
+    build:
+      context: .
+      dockerfile: packages/control-plane/Dockerfile
+    container_name: aindigo-control-plane
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    restart: unless-stopped
+
+  data-plane:
+    build:
+      context: .
+      dockerfile: packages/data-plane/Dockerfile
+    container_name: aindigo-data-plane
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - CONTROL_PLANE_URL=http://control-plane:3000
+      - DATA_PLANE_MASTER_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+      - CLUSTER_SYNC_SECRET=aindigo-cluster-hmac-secret-key-2026-enterprise-verified
+    depends_on:
+      - control-plane
+    restart: unless-stopped
