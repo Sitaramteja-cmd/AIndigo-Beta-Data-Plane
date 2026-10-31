@@ -129,6 +129,10 @@
           <span class="flex items-center gap-2.5"><i data-lucide="radar" class="w-4 h-4"></i> Security & SIEM Logs</span>
           <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400">PUSH/PULL</span>
         </button>
+        <button onclick="switchTab('compliance')" id="nav-compliance" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-charcoal-800 transition">
+          <span class="flex items-center gap-2.5"><i data-lucide="shield-check" class="w-4 h-4"></i> Compliance Audits</span>
+          <span class="text-[9px] font-mono px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-400">HIPAA/NIST</span>
+        </button>
         <button onclick="switchTab('help')" id="nav-help" class="nav-btn w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:text-white hover:bg-charcoal-800 transition">
           <span class="flex items-center gap-2.5"><i data-lucide="book-open" class="w-4 h-4"></i> Help & Setup Guide</span>
         </button>
@@ -527,56 +531,58 @@ client = OpenAI(
       </section>
 
     
-        <!-- ========================================== -->
-        <!-- TAB: ENTERPRISE COMPLIANCE AUDIT PANEL     -->
-        <!-- ========================================== -->
-        <section id="tab-compliance" class="panel hidden space-y-6">
-          <div style="padding: 24px; background: #0f172a; color: #f8fafc; border-radius: 12px; border: 1px solid #334155;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-              <div>
-                <h2 style="margin: 0; font-size: 22px; color: #38bdf8;">🔒 Enterprise Compliance & Regulatory Audits</h2>
-                <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 14px;">Real-time zero-trust verification against HIPAA, NIST AI RMF, and ISO 42001 standards.</p>
-              </div>
-              <button onclick="downloadComplianceReport()" style="background: #0284c7; color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-                📥 Export Audit-Ready Report
-              </button>
-            </div>
+        
 
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
-              <div style="background: #1e293b; padding: 16px; border-radius: 8px; border-left: 4px solid #10b981;">
-                <span style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">HIPAA PHI Protections</span>
-                <h3 id="stat-hipaa" style="margin: 8px 0 0 0; font-size: 24px; color: #10b981;">0 Events</h3>
-              </div>
-              <div style="background: #1e293b; padding: 16px; border-radius: 8px; border-left: 4px solid #6366f1;">
-                <span style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">NIST Security Mitigations</span>
-                <h3 id="stat-nist" style="margin: 8px 0 0 0; font-size: 24px; color: #6366f1;">0 Events</h3>
-              </div>
-              <div style="background: #1e293b; padding: 16px; border-radius: 8px; border-left: 4px solid #f59e0b;">
-                <span style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">ISO Governance Checks</span>
-                <h3 id="stat-iso" style="margin: 8px 0 0 0; font-size: 24px; color: #f59e0b;">0 Events</h3>
-              </div>
+      <!-- ========================================== -->
+      <!-- TAB: ENTERPRISE COMPLIANCE AUDIT PANEL     -->
+      <!-- ========================================== -->
+      <section id="tab-compliance" class="hidden space-y-6">
+        <div style="padding: 24px; background: #0f172a; color: #f8fafc; border-radius: 16px; border: 1px solid #334155;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div>
+              <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: #38bdf8;">🔒 Enterprise Compliance & Regulatory Audits</h2>
+              <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 13px;">Real-time zero-trust verification against HIPAA, NIST AI RMF, and ISO 42001 standards.</p>
             </div>
+            <button onclick="downloadComplianceReport()" style="background: #0284c7; color: white; border: none; padding: 10px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+              📥 Export Audit-Ready Report
+            </button>
+          </div>
 
-            <h3 style="font-size: 16px; margin-bottom: 12px; color: #e2e8f0;">Recent Regulated Interceptions & Audit Trail</h3>
-            <div style="overflow-x: auto;">
-              <table id="violations-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
-                <thead>
-                  <tr style="border-bottom: 1px solid #334155; color: #94a3b8;">
-                    <th style="padding: 10px;">Receipt ID</th>
-                    <th style="padding: 10px;">Department</th>
-                    <th style="padding: 10px;">Model Routed</th>
-                    <th style="padding: 10px;">DLP / Compliance Flags</th>
-                    <th style="padding: 10px;">Timestamp</th>
-                  </tr>
-                </thead>
-                <tbody id="violations-tbody">
-                  <tr><td colspan="5" style="padding: 16px; text-align: center; color: #64748b;">Loading compliance telemetry...</td></tr>
-                </tbody>
-              </table>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+            <div style="background: #1e293b; padding: 16px; border-radius: 10px; border-left: 4px solid #10b981;">
+              <span style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">HIPAA PHI Protections</span>
+              <h3 id="stat-hipaa" style="margin: 8px 0 0 0; font-size: 24px; font-weight: 700; color: #10b981;">0 Events</h3>
+            </div>
+            <div style="background: #1e293b; padding: 16px; border-radius: 10px; border-left: 4px solid #6366f1;">
+              <span style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">NIST Security Mitigations</span>
+              <h3 id="stat-nist" style="margin: 8px 0 0 0; font-size: 24px; font-weight: 700; color: #6366f1;">0 Events</h3>
+            </div>
+            <div style="background: #1e293b; padding: 16px; border-radius: 10px; border-left: 4px solid #f59e0b;">
+              <span style="font-size: 11px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">ISO Governance Checks</span>
+              <h3 id="stat-iso" style="margin: 8px 0 0 0; font-size: 24px; font-weight: 700; color: #f59e0b;">0 Events</h3>
             </div>
           </div>
-        </section>
-</main>
+
+          <h3 style="font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #e2e8f0;">Recent Regulated Interceptions & Audit Trail</h3>
+          <div style="overflow-x: auto;">
+            <table id="violations-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12px;">
+              <thead>
+                <tr style="border-bottom: 1px solid #334155; color: #94a3b8;">
+                  <th style="padding: 10px;">Receipt ID</th>
+                  <th style="padding: 10px;">Department</th>
+                  <th style="padding: 10px;">Model Routed</th>
+                  <th style="padding: 10px;">DLP / Compliance Flags</th>
+                  <th style="padding: 10px;">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody id="violations-tbody">
+                <tr><td colspan="5" style="padding: 16px; text-align: center; color: #64748b;">Loading compliance telemetry...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
   </div>
 
   <script>
@@ -626,9 +632,10 @@ client = OpenAI(
     };
 
     function switchTab(tabId) {
-      var tabs = ["dashboard", "onboarding", "keys", "sandbox", "siem", "help", "about", "tiers"];
+      var tabs = ["dashboard", "onboarding", "keys", "sandbox", "siem", "compliance", "help", "about", "tiers"];
       var titles = {
         dashboard: "Executive Telemetry & Merkle Audit Ledger",
+        compliance: "Enterprise Compliance & Regulatory Audits",
         onboarding: "1. Node Pairing & Account Authentication",
         keys: "2. Virtual Key Vault (Universal BYOK)",
         sandbox: "3. Live Proxy Inspector & Terminal Test",
@@ -650,7 +657,7 @@ client = OpenAI(
         }
       }
       document.getElementById("page-title").innerText = titles[tabId] || APP_BRAND;
-      if (tabId === "siem") loadSiemLogsTable();
+      if (tabId === "siem") loadSiemLogsTable(); if (tabId === "compliance" && typeof loadComplianceData === "function") loadComplianceData();
     }
 
     function populateModelsForProvider() {
@@ -1105,4 +1112,5 @@ async function downloadComplianceReport() {
 setInterval(loadComplianceData, 15000);
 window.addEventListener('load', loadComplianceData);
 </script>
+
 
