@@ -1,6 +1,37 @@
-﻿node_modules/
-*.sqlite
-*.db
-*.log
+﻿# Dependencies & Compiled Binaries
+node_modules/
+**/node_modules/
 dist/
+**/dist/
+build/
+**/build/
+*.exe
+**/*.exe
+
+# Environment Secrets
+.env
+**/.env
+.env.*
+!.env.example
+!**/.env.example
+
+# SQLite Runtime & Lock Files
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+**/*.db
+**/*.db-wal
+**/*.db-shm
+**/*.sqlite
+**/*.sqlite-wal
+**/*.sqlite-shm
+
+# Logs & OS Artifacts
+*.log
+**/*.log
+logs/
 .DS_Store
+Thumbs.db
