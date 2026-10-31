@@ -278,312 +278,7 @@
         </div>
 
       <!-- ENTERPRISE COMPLIANCE AUDIT DASHBOARD PANEL -->
-      <div id="compliance-section" style="padding: 24px; background: #0f172a; color: #f8fafc; border-radius: 12px; margin-top: 20px; border: 1px solid #334155;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-          <div>
-            <h2 style="margin: 0; font-size: 22px; color: #38bdf8;">🔒 Enterprise Compliance & Regulatory Audits</h2>
-            <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 14px;">Real-time zero-trust verification against HIPAA, NIST AI RMF, and ISO 42001 standards.</p>
-          </div>
-          <button onclick="downloadComplianceReport()" style="background: #0284c7; color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
-            📥 Export Audit-Ready Report
-          </button>
-        </div>
-
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
-          <div style="background: #1e293b; padding: 16px; border-radius: 8px; border-left: 4px solid #10b981;">
-            <span style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">HIPAA PHI Protections</span>
-            <h3 id="stat-hipaa" style="margin: 8px 0 0 0; font-size: 24px; color: #10b981;">0 Events</h3>
-          </div>
-          <div style="background: #1e293b; padding: 16px; border-radius: 8px; border-left: 4px solid #6366f1;">
-            <span style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">NIST Security Mitigations</span>
-            <h3 id="stat-nist" style="margin: 8px 0 0 0; font-size: 24px; color: #6366f1;">0 Events</h3>
-          </div>
-          <div style="background: #1e293b; padding: 16px; border-radius: 8px; border-left: 4px solid #f59e0b;">
-            <span style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">ISO Governance Checks</span>
-            <h3 id="stat-iso" style="margin: 8px 0 0 0; font-size: 24px; color: #f59e0b;">0 Events</h3>
-          </div>
-        </div>
-
-        <h3 style="font-size: 16px; margin-bottom: 12px; color: #e2e8f0;">Recent Regulated Interceptions & Audit Trail</h3>
-        <div style="overflow-x: auto;">
-          <table id="violations-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
-            <thead>
-              <tr style="border-bottom: 1px solid #334155; color: #94a3b8;">
-                <th style="padding: 10px;">Receipt ID</th>
-                <th style="padding: 10px;">Department</th>
-                <th style="padding: 10px;">Model Routed</th>
-                <th style="padding: 10px;">DLP / Compliance Flags</th>
-                <th style="padding: 10px;">Timestamp</th>
-              </tr>
-            </thead>
-            <tbody id="violations-tbody">
-              <tr><td colspan="5" style="padding: 16px; text-align: center; color: #64748b;">Loading compliance telemetry...</td></tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      </section>
-
-      <!-- ========================================== -->
-      <!-- TAB 2: NODE PAIRING & ACCOUNT AUTH         -->
-      <!-- ========================================== -->
-      <section id="tab-onboarding" class="hidden space-y-6 max-w-4xl">
-        <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-5">
-          <div class="border-b border-charcoal-700 pb-4">
-            <h2 class="text-base font-bold text-white flex items-center gap-2">
-              <i data-lucide="user-check" class="w-5 h-5 text-gold-400"></i>
-              Register or Sign In to Pair Your Local Data Plane (Port 8080)
-            </h2>
-            <p class="text-xs text-slate-400 mt-1">Your registered email is the administrative owner. Once signed in, AIndigo automatically pushes your Cluster Sync Secret to your local Data Plane on Port 8080.</p>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">Organization / Workspace Name</label>
-              <input type="text" id="auth-org" value="My Dev Workspace" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">Valid Work Email *</label>
-              <input type="email" id="auth-email" placeholder="you@company.com" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">Password *</label>
-              <input type="password" id="auth-pass" placeholder="••••••••" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
-            </div>
-          </div>
-
-          <div class="flex flex-wrap gap-3">
-            <button onclick="registerAccount()" class="px-5 py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 text-black font-bold text-xs flex items-center gap-2 transition">
-              <i data-lucide="sparkles" class="w-4 h-4"></i> Sign Up & Auto-Pair Local Proxy
-            </button>
-            <button onclick="loginAccount()" class="px-5 py-2.5 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-white font-semibold text-xs border border-charcoal-700 flex items-center gap-2 transition">
-              <i data-lucide="log-in" class="w-4 h-4"></i> Log In to Existing Workspace
-            </button>
-          </div>
-
-          <div class="space-y-2">
-            <label class="block text-xs font-mono uppercase text-slate-400">Node Pairing & Docker Deployment Output</label>
-            <pre id="auth-output" class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 text-xs font-mono text-emerald-400 whitespace-pre-wrap break-all">Enter a valid work email above and click "Sign Up & Auto-Pair Local Proxy" to link Port 8080 and generate your Docker run command.</pre>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================== -->
-      <!-- TAB 3: VIRTUAL KEY VAULT                   -->
-      <!-- ========================================== -->
-      <section id="tab-keys" class="hidden space-y-6 max-w-4xl">
-        <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-5">
-          <div class="border-b border-charcoal-700 pb-4">
-            <h2 class="text-base font-bold text-white flex items-center gap-2">
-              <i data-lucide="key-round" class="w-5 h-5 text-gold-400"></i>
-              Mint AES-256-GCM Virtual Key (Universal BYOK Vault)
-            </h2>
-            <p class="text-xs text-slate-400 mt-1">Select any upstream LLM provider, paste your real API key (such as your Google AI Studio key), and generate a Virtual Key (<code class="text-gold-400">vk-aindigo-...</code>) for your agents. Multiple agents can run on a single Data Plane using separate Virtual Keys.</p>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">1. Upstream LLM Provider</label>
-              <select id="mint-provider" onchange="populateModelsForProvider()" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
-                <option value="gemini">Google AI Studio (Gemini)</option>
-                <option value="anthropic">Anthropic (Claude)</option>
-                <option value="openai">OpenAI (GPT)</option>
-                <option value="groq">Groq LPU Inference</option>
-                <option value="mistral">Mistral AI</option>
-                <option value="deepseek">DeepSeek (R1 / V3)</option>
-                <option value="bedrock">AWS Bedrock (VPC)</option>
-                <option value="azure_openai">Azure OpenAI Service</option>
-              </select>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">2. Default Target Model Version</label>
-              <select id="mint-model" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500"></select>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">3. Agent / Service Account Tag</label>
-              <input type="text" id="mint-dept" value="core_engineering" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">4. Monthly Budget Cap ($ USD)</label>
-              <input type="number" id="mint-budget" value="100" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1.5">5. DLP Security Policy</label>
-              <select id="mint-dlp" onchange="handleDlpModeChange()" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-gold-500">
-                <option value="redact" selected>Standard Redact & Vault (Community)</option>
-                <option value="block_locked">Strict Block Mode (SME / Pro)</option>
-                <option value="custom_locked">Custom IP Regex Vault (Enterprise)</option>
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-slate-300 mb-1.5">6. Actual Upstream Provider API Key (Encrypted locally via AES-256-GCM)</label>
-            <input type="text" id="mint-key" value="sk-ant-live-mock-secure-credential" placeholder="Paste AIzaSy..., sk-ant-..., sk-proj-..., or mock-..." class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2.5 text-sm font-mono text-gold-400 focus:outline-none focus:border-gold-500">
-          </div>
-
-          <button onclick="mintVirtualKey()" class="w-full py-3 rounded-xl bg-gradient-to-r from-gold-500 to-gold-600 hover:opacity-95 text-black font-bold text-xs uppercase tracking-wider transition shadow-lg">
-            Encrypt Upstream Key & Mint AIndigo Virtual Key
-          </button>
-
-          <div class="space-y-2">
-            <label class="block text-xs font-mono uppercase text-slate-400">Minted Virtual Key Output</label>
-            <pre id="mint-output" class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 text-xs font-mono text-emerald-400 whitespace-pre-wrap break-all">Your generated vk-aindigo-... key will appear here. Copy it into your AI Agent or IDE config!</pre>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================== -->
-      <!-- TAB 4: LIVE SANDBOX & IDE INSPECTOR        -->
-      <!-- ========================================== -->
-      <section id="tab-sandbox" class="hidden space-y-6">
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-4">
-            <div class="border-b border-charcoal-700 pb-3">
-              <h3 class="text-base font-bold text-white flex items-center gap-2">
-                <i data-lucide="play-circle" class="w-5 h-5 text-gold-400"></i>
-                Live Data Plane Proxy Inspector (Port 8080)
-              </h3>
-              <p class="text-xs text-slate-400 mt-0.5">Send a test prompt containing sensitive secrets through your local Data Plane to verify real-time DLP scrubbing and Merkle receipt generation.</p>
-            </div>
-
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1">Active Virtual Key</label>
-              <input type="text" id="play-vkey" value="vk-aindigo-dev-local-9999" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3.5 py-2 text-xs font-mono text-gold-400">
-            </div>
-
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1">Simulated Agent Prompt (With AWS Key, Aadhaar & Internal Host)</label>
-              <textarea id="play-prompt" rows="3" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl p-3.5 text-xs font-mono text-slate-200">Connect to prod-db.internal.corp with AWS key AKIAIOSFODNN7EXAMPLE and Aadhaar 4567 9345 6934</textarea>
-            </div>
-
-            <button onclick="sendPlaygroundRequest()" class="w-full py-2.5 rounded-xl bg-gold-500 hover:bg-gold-400 text-black font-bold text-xs transition">
-              Send Governed Request Through Local Data Plane
-            </button>
-
-            <div>
-              <label class="block text-xs font-mono uppercase text-slate-400 mb-1">Live Governance & DLP Vault Response</label>
-              <pre id="play-output" class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 text-xs font-mono text-emerald-400 max-h-64 overflow-y-auto whitespace-pre-wrap break-all">Click above to inspect the live response...</pre>
-            </div>
-          </div>
-
-          <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-4">
-            <div class="border-b border-charcoal-700 pb-3">
-              <h3 class="text-base font-bold text-white flex items-center gap-2">
-                <i data-lucide="terminal" class="w-5 h-5 text-gold-400"></i>
-                Quick Terminal Test (PowerShell / cURL)
-              </h3>
-              <p class="text-xs text-slate-400 mt-0.5">Test your Google AI Studio or OpenAI Virtual Key directly from your workstation terminal:</p>
-            </div>
-            <pre class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-4 text-[11px] font-mono text-slate-300 overflow-x-auto">$body = @{
-  model = "gemini-2.5-flash"
-  messages = @(
-    @{ role = "user"; content = "DB host is db.internal.corp and key is AKIAIOSFODNN7EXAMPLE" }
-  )
-} | ConvertTo-Json -Depth 5
-
-Invoke-RestMethod -Uri "http://127.0.0.1:8080/v1/chat/completions" `
-  -Method Post `
-  -Headers @{
-    "Authorization" = "Bearer vk-aindigo-your-minted-key"
-    "Content-Type"  = "application/json"
-  } -Body $body | ConvertTo-Json -Depth 6</pre>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================== -->
-      <!-- TAB 5: SECURITY & SIEM LOGS (PUSH & PULL)  -->
-      <!-- ========================================== -->
-      <section id="tab-siem" class="hidden space-y-6">
-        <!-- Top SIEM Action Bar: Direct UI Export + Pull API + Push Webhook -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <!-- Left: Push to Customer SIEM (Webhook Streamer) -->
-          <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-4">
-            <div class="flex items-center justify-between border-b border-charcoal-700 pb-3">
-              <div>
-                <h3 class="text-base font-bold text-white flex items-center gap-2">
-                  <i data-lucide="send" class="w-4 h-4 text-gold-400"></i>
-                  1. SIEM Push Integration (Real-Time Webhook Forwarder)
-                </h3>
-                <p class="text-xs text-slate-400 mt-0.5">Automatically push every cryptographically signed AI agent receipt to Splunk HEC, Datadog, Sentinel, or Elastic.</p>
-              </div>
-              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">PUSH MODE</span>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div class="md:col-span-2">
-                <label class="block text-xs font-medium text-slate-300 mb-1">Customer SIEM Intake Webhook URL</label>
-                <input type="text" id="siem-webhook-url" placeholder="https://http-inputs.splunkcloud.com/services/collector" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3 py-2 text-xs font-mono text-white">
-              </div>
-              <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1">Payload Format</label>
-                <select id="siem-format" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3 py-2 text-xs text-white">
-                  <option value="json">JSON (Datadog / Splunk)</option>
-                  <option value="cef">CEF (Sentinel / QRadar / ArcSight)</option>
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label class="block text-xs font-medium text-slate-300 mb-1">Optional Authorization Header (e.g. <code class="text-gold-400">Splunk &lt;HEC_TOKEN&gt;</code> or <code class="text-gold-400">Bearer &lt;API_KEY&gt;</code>)</label>
-              <input type="password" id="siem-auth-header" placeholder="Splunk 00000000-0000-0000-0000-000000000000" class="w-full bg-charcoal-950 border border-charcoal-700 rounded-xl px-3 py-2 text-xs font-mono text-white">
-            </div>
-
-            <div class="flex flex-wrap gap-2.5">
-              <button onclick="saveSiemConfig()" class="px-4 py-2 rounded-xl bg-gold-500 hover:bg-gold-400 text-black font-bold text-xs transition">
-                Save Push Webhook Config
-              </button>
-              <button onclick="testSiemPush()" class="px-4 py-2 rounded-xl bg-charcoal-800 hover:bg-charcoal-700 text-slate-200 border border-charcoal-700 font-semibold text-xs transition">
-                Dispatch Test Event to SIEM
-              </button>
-            </div>
-
-            <pre id="siem-push-output" class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-3.5 text-[11px] font-mono text-emerald-400 max-h-40 overflow-y-auto whitespace-pre-wrap break-all">Configure a webhook above or click "Dispatch Test Event to SIEM" to inspect the live Zero-Knowledge SIEM payload.</pre>
-          </div>
-
-          <!-- Right: Pull by Customer SIEM & One-Click UI Export -->
-          <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl p-6 space-y-4 flex flex-col justify-between">
-            <div class="space-y-4">
-              <div class="flex items-center justify-between border-b border-charcoal-700 pb-3">
-                <div>
-                  <h3 class="text-base font-bold text-white flex items-center gap-2">
-                    <i data-lucide="download-cloud" class="w-4 h-4 text-gold-400"></i>
-                    2. SIEM Pull API & Direct UI File Export
-                  </h3>
-                  <p class="text-xs text-slate-400 mt-0.5">Customer SOC collectors can poll the REST endpoint directly, or compliance auditors can download logs below.</p>
-                </div>
-                <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/15 text-sky-400 border border-sky-500/30">PULL & EXPORT</span>
-              </div>
-
-              <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1.5">One-Click Compliance Log Download (From UI)</label>
-                <div class="grid grid-cols-3 gap-2.5">
-                  <a href="/api/v1/siem/logs?format=json" download="aindigo-siem-logs.json" class="py-2.5 px-3 rounded-xl bg-charcoal-800 hover:bg-gold-500 hover:text-black text-center text-xs font-semibold text-gold-400 border border-gold-500/30 transition">
-                    Download .JSON
-                  </a>
-                  <a href="/api/v1/siem/logs?format=csv" download="aindigo-siem-logs.csv" class="py-2.5 px-3 rounded-xl bg-charcoal-800 hover:bg-emerald-500 hover:text-black text-center text-xs font-semibold text-emerald-400 border border-emerald-500/30 transition">
-                    Download .CSV
-                  </a>
-                  <a href="/api/v1/siem/logs?format=cef" download="aindigo-siem-logs.cef" class="py-2.5 px-3 rounded-xl bg-charcoal-800 hover:bg-sky-500 hover:text-black text-center text-xs font-semibold text-sky-400 border border-sky-500/30 transition">
-                    Download .CEF
-                  </a>
-                </div>
-              </div>
-
-              <div>
-                <label class="block text-xs font-medium text-slate-300 mb-1">Customer SIEM Collector Pull Polling Command (cURL)</label>
-                <pre id="siem-pull-cmd" class="bg-charcoal-950 border border-charcoal-700 rounded-xl p-3 text-[11px] font-mono text-slate-300 overflow-x-auto"># Pull JSON / CEF / CSV logs from SIEM Collector:
-curl -s "http://127.0.0.1:3000/api/v1/siem/logs?format=json&limit=200" \
-  -H "Authorization: Bearer YOUR_CLUSTER_SYNC_TOKEN"</pre>
-              </div>
-            </div>
-          </div>
-        </div>
+      
 
         <!-- Live Security Event Stream Table -->
         <div class="bg-charcoal-900 border border-charcoal-700 rounded-2xl overflow-hidden">
@@ -831,7 +526,57 @@ client = OpenAI(
         </div>
       </section>
 
-    </main>
+    
+        <!-- ========================================== -->
+        <!-- TAB: ENTERPRISE COMPLIANCE AUDIT PANEL     -->
+        <!-- ========================================== -->
+        <section id="tab-compliance" class="panel hidden space-y-6">
+          <div style="padding: 24px; background: #0f172a; color: #f8fafc; border-radius: 12px; border: 1px solid #334155;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+              <div>
+                <h2 style="margin: 0; font-size: 22px; color: #38bdf8;">🔒 Enterprise Compliance & Regulatory Audits</h2>
+                <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 14px;">Real-time zero-trust verification against HIPAA, NIST AI RMF, and ISO 42001 standards.</p>
+              </div>
+              <button onclick="downloadComplianceReport()" style="background: #0284c7; color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 8px;">
+                📥 Export Audit-Ready Report
+              </button>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 24px;">
+              <div style="background: #1e293b; padding: 16px; border-radius: 8px; border-left: 4px solid #10b981;">
+                <span style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">HIPAA PHI Protections</span>
+                <h3 id="stat-hipaa" style="margin: 8px 0 0 0; font-size: 24px; color: #10b981;">0 Events</h3>
+              </div>
+              <div style="background: #1e293b; padding: 16px; border-radius: 8px; border-left: 4px solid #6366f1;">
+                <span style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">NIST Security Mitigations</span>
+                <h3 id="stat-nist" style="margin: 8px 0 0 0; font-size: 24px; color: #6366f1;">0 Events</h3>
+              </div>
+              <div style="background: #1e293b; padding: 16px; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                <span style="font-size: 12px; color: #94a3b8; text-transform: uppercase; font-weight: 700;">ISO Governance Checks</span>
+                <h3 id="stat-iso" style="margin: 8px 0 0 0; font-size: 24px; color: #f59e0b;">0 Events</h3>
+              </div>
+            </div>
+
+            <h3 style="font-size: 16px; margin-bottom: 12px; color: #e2e8f0;">Recent Regulated Interceptions & Audit Trail</h3>
+            <div style="overflow-x: auto;">
+              <table id="violations-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;">
+                <thead>
+                  <tr style="border-bottom: 1px solid #334155; color: #94a3b8;">
+                    <th style="padding: 10px;">Receipt ID</th>
+                    <th style="padding: 10px;">Department</th>
+                    <th style="padding: 10px;">Model Routed</th>
+                    <th style="padding: 10px;">DLP / Compliance Flags</th>
+                    <th style="padding: 10px;">Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody id="violations-tbody">
+                  <tr><td colspan="5" style="padding: 16px; text-align: center; color: #64748b;">Loading compliance telemetry...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+</main>
   </div>
 
   <script>
@@ -1360,3 +1105,4 @@ async function downloadComplianceReport() {
 setInterval(loadComplianceData, 15000);
 window.addEventListener('load', loadComplianceData);
 </script>
+
