@@ -1276,15 +1276,15 @@ async function loadComplianceData() {
 
       const tbody = document.getElementById('violations-tbody');
       if (data.violations && data.violations.length > 0) {
-        tbody.innerHTML = data.violations.map(v => 
+        tbody.innerHTML = data.violations.map(v => `
           <tr style="border-bottom: 1px solid #1e293b;">
-            <td style="padding: 10px; font-family: monospace; color: #38bdf8;">\</td>
-            <td style="padding: 10px;">\</td>
-            <td style="padding: 10px; font-family: monospace;">\</td>
-            <td style="padding: 10px;"><span style="background: #334155; padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #f8fafc;">\</span></td>
-            <td style="padding: 10px; color: #94a3b8;">\</td>
+            <td style="padding: 10px; font-family: monospace; color: #38bdf8;">${v.receipt_id}</td>
+            <td style="padding: 10px;">${v.department}</td>
+            <td style="padding: 10px; font-family: monospace;">${v.model_routed}</td>
+            <td style="padding: 10px;"><span style="background: #334155; padding: 2px 6px; border-radius: 4px; font-size: 11px; color: #f8fafc;">${v.dlp_flags}</span></td>
+            <td style="padding: 10px; color: #94a3b8;">${v.created_at}</td>
           </tr>
-        ).join('');
+        `).join('');
       } else {
         tbody.innerHTML = '<tr><td colspan="5" style="padding: 16px; text-align: center; color: #64748b;">No compliance violations or flags recorded yet.</td></tr>';
       }
@@ -1302,7 +1302,7 @@ async function downloadComplianceReport() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = AIndigo-Enterprise-Compliance-Audit-\.json;
+    a.download = `AIndigo-Enterprise-Compliance-Audit-${new Date().toISOString().slice(0,10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
   } catch (err) {
@@ -1313,7 +1313,3 @@ async function downloadComplianceReport() {
 setInterval(loadComplianceData, 15000);
 window.addEventListener('load', loadComplianceData);
 </script>
-</body>
-</html>
-
-
