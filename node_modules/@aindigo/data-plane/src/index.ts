@@ -44,6 +44,14 @@ const CONTROL_PLANE_URL = process.env.CONTROL_PLANE_URL || 'http://127.0.0.1:300
 
 const app = new Hono();
 app.use('/*', cors());
+app.use('/*', async (c, next) => {
+  c.header('Access-Control-Allow-Private-Network', 'true');
+  c.header('Access-Control-Allow-Origin', '*');
+  c.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  c.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, x-api-key');
+  if (c.req.method === 'OPTIONS') return c.text('', 204);
+  await next();
+});
 
 const keyCache = new LRUCache<string, VirtualKeyRow>({
   max: 5000,
@@ -332,3 +340,4 @@ serve({ fetch: app.fetch, port, hostname: host }, (info) => {
   }
   console.log(`======================================================\n`);
 });
+

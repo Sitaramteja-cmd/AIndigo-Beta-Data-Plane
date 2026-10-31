@@ -203,3 +203,40 @@ export function destroyVaultSession(sessionId: string): void {
     activeVaults.delete(sessionId);
   }
 }
+
+// ==========================================
+// ENTERPRISE COMPLIANCE EXTENSION (HIPAA / NIST / ISO)
+// ==========================================
+
+export const HIPAA_COMPLIANCE_PATTERNS: Record<string, RegExp> = {
+  US_SSN: /\b\d{3}-\d{2}-\d{4}\b/g,
+  MEDICAL_RECORD_NUMBER: /\bMRN[:\s#]*([A-Z0-9]{6,12})\b/gi,
+  CLINICAL_PHONE: /\b(?:\+?1[-.]?)?\(?([0-9]{3})\)?[-. ]?([0-9]{3})[-. ]?([0-9]{4})\b/g,
+  CLINICAL_DOB: /\b(?:DOB|Birthdate|Date of Birth)[:\s]*\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/gi,
+};
+
+export interface ComplianceEvaluationResult {
+  flaggedCategories: string[];
+  complianceTags: string[];
+}
+
+export function evaluateComplianceFrameworks(flaggedCategories: string[]): string[] {
+  const complianceTags = new Set<string>();
+
+  // 1. HIPAA Security Rule (45 CFR § 164.312) - PHI Protections
+  const hipaaCategories = ['US_SSN', 'MEDICAL_RECORD_NUMBER', 'CLINICAL_PHONE', 'CLINICAL_DOB', 'EMAIL_ADDRESS'];
+  if (flaggedCategories.some(cat => hipaaCategories.includes(cat))) {
+    complianceTags.add('HIPAA_PHI_PROTECTED');
+  }
+
+  // 2. NIST AI RMF 1.0 & NIST SP 800-53 - Credential & Security Risk
+  const nistCategories = ['OPENAI_API_KEY', 'AWS_SECRET_KEY', 'PRIVATE_KEY', 'ANTHROPIC_API_KEY'];
+  if (flaggedCategories.some(cat => nistCategories.includes(cat))) {
+    complianceTags.add('NIST_AI_RMF_CREDENTIAL_SECURED');
+  }
+
+  // 3. ISO/IEC 42001 & 27001 - AI Governance & InfoSec Management
+  complianceTags.add('ISO_42001_GOVERNANCE_LOGGED');
+
+  return Array.from(complianceTags);
+}

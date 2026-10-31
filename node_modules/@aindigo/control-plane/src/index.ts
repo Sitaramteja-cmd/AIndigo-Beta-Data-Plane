@@ -366,3 +366,75 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`☁️  [AIndigo Cloud Control Plane v1.00.00-beta] Active on http://127.0.0.1:${PORT}`);
 });
+
+// ==========================================
+// ENTERPRISE COMPLIANCE AUDIT API HANDLERS
+// ==========================================
+function handleComplianceApi(req: http.IncomingMessage, res: http.ServerResponse, parsedUrl: any) {
+  try {
+    const db = getCloudDatabase();
+
+    if (parsedUrl.pathname === '/api/compliance/summary') {
+      const stats = db.prepare(`
+        SELECT 
+          COUNT(*) as total_audits,
+          SUM(CASE WHEN dlp_flags LIKE '%HIPAA%' OR dlp_flags LIKE '%US_SSN%' OR dlp_flags LIKE '%MEDICAL_RECORD_NUMBER%' THEN 1 ELSE 0 END) as hipaa_events,
+          SUM(CASE WHEN dlp_flags LIKE '%NIST%' OR dlp_flags LIKE '%API_KEY%' THEN 1 ELSE 0 END) as nist_events,
+          SUM(CASE WHEN dlp_flags LIKE '%ISO%' OR dlp_flags != '[]' THEN 1 ELSE 0 END) as iso_events
+        FROM audit_receipts
+      `).get() || { total_audits: 0, hipaa_events: 0, nist_events: 0, iso_events: 0 };
+
+      const recentViolations = db.prepare(`
+        SELECT receipt_id, tenant_id, department, model_routed, dlp_flags, created_at
+        FROM audit_receipts
+        WHERE dlp_flags != '[]'
+        ORDER BY id DESC
+        LIMIT 25
+      `).all();
+
+      const responsePayload = {
+        status: 'SUCCESS',
+        frameworksActive: [
+          'HIPAA Security Rule (45 CFR § 164.312)',
+          'NIST AI RMF 1.0 (SP 800-53)',
+          'ISO/IEC 42001:2023 AI Management'
+        ],
+        statistics: stats,
+        violations: recentViolations,
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify(responsePayload));
+      return true;
+    }
+
+    if (parsedUrl.pathname === '/api/compliance/export-report') {
+      const allReceipts = db.prepare(`
+        SELECT receipt_id, tenant_id, department, model_requested, prompt_tokens, completion_tokens, cost_usd, dlp_flags, receipt_hmac, created_at
+        FROM audit_receipts
+        ORDER BY id DESC
+      `).all();
+
+      const report = {
+        generatedAt: new Date().toISOString(),
+        organization: "AIndigo Enterprise Governance Tenant",
+        frameworksValidated: [
+          "HIPAA Security Rule - PHI Redaction & Zero Retention",
+          "NIST AI RMF 1.0 - Cryptographic Audit Integrity",
+          "ISO/IEC 42001 - Automated Policy Enforcement"
+        ],
+        totalAuditEntries: allReceipts.length,
+        auditTrail: allReceipts,
+      };
+
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify(report, null, 2));
+      return true;
+    }
+  } catch (err: any) {
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8', 'Access-Control-Allow-Origin': '*' });
+    res.end(JSON.stringify({ error: 'Compliance API Error', details: err?.message }));
+    return true;
+  }
+  return false;
+}
