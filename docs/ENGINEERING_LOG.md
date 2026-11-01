@@ -46,3 +46,14 @@
   - Implemented Argon2id password hashing and verification module for secure enterprise user authentication.
   - Verified unique salt generation, correct password validation, and incorrect password rejection.
 - **Verification Command:** `npx tsx packages/control-plane/src/auth/auth.test.ts`
+
+## [Module 1.3] Signed Policy Bundles & Offline License Verification
+- **Date:** 2026-11-01
+- **Branch:** `v2-enterprise`
+- **Files Created:**
+  - `packages/control-plane/src/licensing/bundle-signer.ts`
+  - `packages/control-plane/src/licensing/licensing.test.ts`
+- **What Changed & Why:**
+  - Implemented Ed25519-signed policy bundle generation and offline verification for decentralized enterprise nodes.
+  - Verified tamper detection for unauthorized plan limit changes and expiration checks.
+- **Verification Command:** `npx tsx packages/control-plane/src/licensing/licensing.test.ts`
