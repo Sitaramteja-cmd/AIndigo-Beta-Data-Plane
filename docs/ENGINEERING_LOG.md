@@ -24,3 +24,14 @@
   - Enforced a 16-key schema allowlist and forbidden secret regex checks on all outbound control plane payloads.
   - Verified local `egress-audit.jsonl` auditing guarantees zero leakage of sensitive customer prompts.
 - **Verification Command:** `npm run canary`
+
+## [Module 1.1] PostgreSQL Schema & Tenant Isolation (Control Plane)
+- **Date:** 2026-11-01
+- **Branch:** `v2-enterprise`
+- **Files Created:**
+  - `packages/control-plane/src/db/schema.ts`
+  - `packages/control-plane/src/db/tenant-isolation.test.ts`
+- **What Changed & Why:**
+  - Established normalized Drizzle ORM schema for PostgreSQL (`orgs`, `nodes`, `virtual_keys`, `receipts`) keyed by `org_id`.
+  - Implemented and verified tenant scoping middleware ensuring strict data isolation between enterprise organizations.
+- **Verification Command:** `npx tsx packages/control-plane/src/db/tenant-isolation.test.ts`
