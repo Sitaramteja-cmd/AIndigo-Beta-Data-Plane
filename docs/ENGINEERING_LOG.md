@@ -170,3 +170,12 @@
   - `packages/data-plane/src/sync/fleet-governance.ts`
   - `packages/data-plane/src/sync/governance.test.ts`
 - **Verification Command:** `npx tsx D:\aindigo\packages\data-plane\src\sync\governance.test.ts`
+
+## [Step 1A] Streaming SSE with Sliding-Window DLP & Vault Re-hydration
+- **Date:** 2026-11-01
+- **Branch:** `v2-enterprise`
+- **Status:** PASSED (7/7 node:test assertions: 3-way split secret scrubbing, TCP mid-JSON fragmentation, safeCut placeholder boundary protection, single-pass longest-match-first rehydration without re-scanning, and strict [DONE] vs ABORTED_PARTIAL settlement)
+- **Files Modified/Created:**
+  - `packages/data-plane/src/dlp/sse-sliding-window.ts`
+  - `packages/data-plane/src/dlp/sse.test.ts`
+- **Verification Command:** `npx tsx --test D:\aindigo\packages\data-plane\src\dlp\sse.test.ts`
