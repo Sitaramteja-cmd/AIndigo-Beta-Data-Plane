@@ -57,3 +57,13 @@
   - Implemented Ed25519-signed policy bundle generation and offline verification for decentralized enterprise nodes.
   - Verified tamper detection for unauthorized plan limit changes and expiration checks.
 - **Verification Command:** `npx tsx packages/control-plane/src/licensing/licensing.test.ts`
+
+## [Module 1.4] SQLite Telemetry Outbox & Resilient Batch Sync
+- **Date:** 2026-11-01
+- **Branch:** `v2-enterprise`
+- **Files Created:**
+  - `packages/data-plane/src/sync/outbox.ts`
+  - `packages/data-plane/src/sync/outbox.test.ts`
+- **What Changed & Why:**
+  - Implemented the local Outbox pattern for decentralized Data Plane telemetry with batched queueing, exponential backoff retries, and failure handling.
+- **Verification Command:** `npx tsx packages/data-plane/src/sync/outbox.test.ts`
