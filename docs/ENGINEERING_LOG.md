@@ -100,3 +100,14 @@
 - **What Changed & Why:**
   - Implemented an enterprise-grade exact-match caching layer with recursive key sorting, tenant isolation (`org_id` + `virtual_key_id`), strict DLP mutation immunity, and accurate FinOps savings tracking.
 - **Verification Command:** `npx tsx packages\data-plane\src\cache\cache.test.ts`
+
+## [Module 2.4] Production Virtual Key Vault, AAD Envelope Encryption & Micro-USD Ledger
+- **Date:** 2026-11-01
+- **Branch:** `v2-enterprise`
+- **Status:** PASSED (Verified AES-256-GCM with AAD binding, hash-only bearer keys, atomic two-phase micro-USD reservation, stale reservation reaper, spend_ledger auditing, live master key rotation, and secret-free diagnostics on `node:sqlite`)
+- **Files Created:**
+  - `packages/data-plane/src/vault/virtual-key-vault.ts`
+  - `packages/data-plane/src/vault/vault.test.ts`
+- **What Changed & Why:**
+  - Replaced prototype in-memory vault with a crash-resilient `node:sqlite` (`DatabaseSync`) vault using integer micro-USD arithmetic, one-shot reservation handles (`authorize` / `reconcileSpend`), automatic 10-minute stale reservation reaping, multi-version key rings defaulting to the highest version, and non-enumerable secret accessors that prevent log/JSON leakage.
+- **Verification Command:** `npx tsx packages\data-plane\src\vault\vault.test.ts`
