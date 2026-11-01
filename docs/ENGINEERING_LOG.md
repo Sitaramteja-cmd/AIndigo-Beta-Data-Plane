@@ -179,3 +179,13 @@
   - `packages/data-plane/src/dlp/sse-sliding-window.ts`
   - `packages/data-plane/src/dlp/sse.test.ts`
 - **Verification Command:** `npx tsx --test D:\aindigo\packages\data-plane\src\dlp\sse.test.ts`
+
+## [Step 1B] Deterministic Checksum Validators & Multi-Region DLP Corpus
+- **Date:** 2026-11-01
+- **Branch:** `v2-enterprise`
+- **Status:** PASSED (Verified Verhoeff D5, Luhn Mod-10, payment card IIN/BIN prefix rules, GSTIN Mod-36 state-prefix clamping, IBAN ISO 13616 country length tables, US SSN context guards, GitHub PAT CRC32 validation, and zero false-positive span overlap resolution across a 280-sample developer corpus with 100% precision and 100% recall)
+- **Files Modified/Created:**
+  - `packages/data-plane/src/dlp/checksum-validators.ts`
+  - `packages/data-plane/src/dlp/checksum-engine.ts`
+  - `packages/data-plane/src/dlp/checksum-validators.test.ts`
+- **Verification Command:** `npx tsx --test D:\aindigo\packages\data-plane\src\dlp\checksum-validators.test.ts`
