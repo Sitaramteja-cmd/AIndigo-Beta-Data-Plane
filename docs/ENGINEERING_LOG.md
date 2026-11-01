@@ -161,3 +161,12 @@
   - `packages/data-plane/src/sync/telemetry-aggregator.ts`
   - `packages/data-plane/src/sync/telemetry.test.ts`
 - **Verification Command:** `npx tsx D:\aindigo\packages\data-plane\src\sync\telemetry.test.ts`
+
+## [Module 4.3] Centralized Fleet Governance & Revocation Engine
+- **Date:** 2026-11-01
+- **Branch:** `v2-enterprise`
+- **Status:** PASSED (Verified asymmetric Ed25519 signing/verification, private-key isolation on edge nodes, atomic transactional outbox queuing, signing-key registry lookup, and authoritative spend/active-key aggregation)
+- **Files Modified/Created:**
+  - `packages/data-plane/src/sync/fleet-governance.ts`
+  - `packages/data-plane/src/sync/governance.test.ts`
+- **Verification Command:** `npx tsx D:\aindigo\packages\data-plane\src\sync\governance.test.ts`
