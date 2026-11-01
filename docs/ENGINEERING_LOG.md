@@ -111,3 +111,14 @@
 - **What Changed & Why:**
   - Replaced prototype in-memory vault with a crash-resilient `node:sqlite` (`DatabaseSync`) vault using integer micro-USD arithmetic, one-shot reservation handles (`authorize` / `reconcileSpend`), automatic 10-minute stale reservation reaping, multi-version key rings defaulting to the highest version, and non-enumerable secret accessors that prevent log/JSON leakage.
 - **Verification Command:** `npx tsx packages\data-plane\src\vault\vault.test.ts`
+
+## [Module 3.1] End-to-End Data Plane Request Pipeline & Orchestration
+- **Date:** 2026-11-01
+- **Branch:** `v2-enterprise`
+- **Status:** PASSED (Verified vault authorization, deep structural DLP over tool arguments and multimodal arrays, safe exact-match caching with $0.00 hit charges, exact-once finally reconciliation, and typed upstream error mapping)
+- **Files Created:**
+  - `packages/data-plane/src/pipeline/request-pipeline.ts`
+  - `packages/data-plane/src/pipeline/pipeline.test.ts`
+- **What Changed & Why:**
+  - Wired all isolated Tier 2 engines into a single unified asynchronous request pipeline (`processChatCompletion`). Enforced zero bearer-token leakage downstream, exact-once spend reconciliation on failure or success, date-effective pricing tables, and strict streaming rejections.
+- **Verification Command:** `npx tsx packages\data-plane\src\pipeline\pipeline.test.ts`
