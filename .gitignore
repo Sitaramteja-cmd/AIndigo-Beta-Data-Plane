@@ -35,3 +35,8 @@ build/
 logs/
 .DS_Store
 Thumbs.db
+
+# v2 Enterprise Node Private Keys & Local Egress Logs
+.keys/
+*.pem
+egress-audit.jsonl
