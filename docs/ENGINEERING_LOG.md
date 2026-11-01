@@ -122,3 +122,14 @@
 - **What Changed & Why:**
   - Wired all isolated Tier 2 engines into a single unified asynchronous request pipeline (`processChatCompletion`). Enforced zero bearer-token leakage downstream, exact-once spend reconciliation on failure or success, date-effective pricing tables, and strict streaming rejections.
 - **Verification Command:** `npx tsx packages\data-plane\src\pipeline\pipeline.test.ts`
+
+## [Module 3.2] Dynamic FinOps Governor & Model Downshifting
+- **Date:** 2026-11-01
+- **Branch:** `v2-enterprise`
+- **Status:** PASSED (Verified constructor validation, loop prevention, reserved spend utilization, allowed models restrictions, and absolute path execution)
+- **Files Modified/Created:**
+  - `packages/data-plane/src/vault/virtual-key-vault.ts`
+  - `packages/data-plane/src/governor/finops-governor.ts`
+  - `packages/data-plane/src/pipeline/request-pipeline.ts`
+  - `packages/data-plane/src/governor/governor.test.ts`
+- **Verification Command:** `npx tsx D:\aindigo\packages\data-plane\src\governor\governor.test.ts`

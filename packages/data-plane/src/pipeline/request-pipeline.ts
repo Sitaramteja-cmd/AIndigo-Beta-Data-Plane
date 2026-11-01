@@ -3,6 +3,7 @@ import { performance } from "node:perf_hooks";
 import type { VirtualKeyVault, AuthorizeResult } from "../vault/virtual-key-vault.js";
 import { scanAndRedactWithChecksums } from "../dlp/checksum-engine.js";
 import type { SafeExactMatchCache, CacheMessage, CacheOptions } from "../cache/exact-cache.js";
+import type { FinOpsGovernor } from "../governor/finops-governor.js";
 
 export class UpstreamError extends Error {
   public readonly status: number;
@@ -31,7 +32,7 @@ export interface PipelineRequest {
   tools?: Array<Record<string, unknown>>;
   tool_choice?: unknown;
   user?: string;
-  downshiftedModel?: string;
+  noDownshift?: boolean;
   timeoutMs?: number;
 }
 
@@ -52,9 +53,6 @@ export interface PipelineResponse {
   dlpDetectedCategories: string[];
 }
 
-/**
- * Dated Pricing Table (Effective from 2026-01-01)
- */
 function getModelPricing(model: string): { inputPricePerMillion: number; outputPricePerMillion: number } {
   const m = model.toLowerCase();
   if (m.includes("mini") || m.includes("haiku") || m.includes("flash")) {
@@ -66,7 +64,6 @@ function getModelPricing(model: string): { inputPricePerMillion: number; outputP
   if (m.includes("gpt-3.5") || m.includes("embedding")) {
     return { inputPricePerMillion: 0.50, outputPricePerMillion: 1.50 };
   }
-  console.warn(`[AIndigo FinOps Warning] Model '${model}' fell into default fallback pricing tier ($1.00/$3.00 per M tokens).`);
   return { inputPricePerMillion: 1.00, outputPricePerMillion: 3.00 };
 }
 
@@ -93,9 +90,7 @@ function deepScanAndRedact(key: string, val: unknown, detectedCategories: Set<st
           const redactedArgs = deepScanAndRedact(k, parsedArgs, detectedCategories);
           result[k] = JSON.stringify(redactedArgs);
           continue;
-        } catch {
-          // Fall through
-        }
+        } catch {}
       }
       result[k] = deepScanAndRedact(k, v, detectedCategories);
     }
@@ -126,6 +121,7 @@ function mapVaultReasonToStatusCode(reason?: string): number {
 export async function processChatCompletion(
   vault: VirtualKeyVault,
   cache: SafeExactMatchCache,
+  governor: FinOpsGovernor | undefined,
   req: PipelineRequest,
   upstreamExecutor: (decryptedKey: string, effectiveModel: string, scrubbedReq: PipelineRequest, signal: AbortSignal) => Promise<UpstreamResult>
 ): Promise<PipelineResponse> {
@@ -133,7 +129,7 @@ export async function processChatCompletion(
     return {
       statusCode: 400,
       headers: { "X-Aindigo-Error": "STREAMING_NOT_SUPPORTED_IN_V1" },
-      body: JSON.stringify({ error: { message: "Streaming (stream: true) is currently reserved for the SSE pipeline module.", type: "aindigo_policy_violation" } }),
+      body: JSON.stringify({ error: { message: "Streaming is reserved for SSE pipeline.", type: "aindigo_policy_violation" } }),
       tokensUsed: { prompt: 0, completion: 0 },
       costUsd: 0,
       cacheStatus: "BYPASS",
@@ -141,7 +137,21 @@ export async function processChatCompletion(
     };
   }
 
-  const effectiveModel = req.downshiftedModel ?? req.model;
+  // 1. Peek Key Metadata for FinOps Governor Evaluation
+  const keyMeta = vault.peekKey(req.bearerToken);
+  let effectiveModel = req.model;
+  let downshifted = false;
+  let downshiftReason: string | undefined;
+
+  if (keyMeta && governor && !req.noDownshift) {
+    const evalResult = governor.evaluate(keyMeta, req.model);
+    if (evalResult.downshifted) {
+      effectiveModel = evalResult.effectiveModel;
+      downshifted = true;
+      downshiftReason = evalResult.reason;
+    }
+  }
+
   const pricing = getModelPricing(effectiveModel);
 
   const payloadJson = JSON.stringify({ system: req.system, messages: req.messages, tools: req.tools });
@@ -153,10 +163,11 @@ export async function processChatCompletion(
     (effectiveMaxTokens / 1_000_000) * pricing.outputPricePerMillion
   ).toFixed(6));
 
+  // 2. Authorize & Reserve Budget with Effective Model
   const auth: AuthorizeResult = vault.authorize({
     rawVirtualKey: req.bearerToken,
     requestedModel: req.model,
-    downshiftedModel: req.downshiftedModel,
+    downshiftedModel: effectiveModel,
     estimatedCostUsd,
   });
 
@@ -276,19 +287,28 @@ export async function processChatCompletion(
 
     clearTimeout(timer);
 
-    const receiptId = `rcpt_${crypto.createHash("sha256").update(reservationId + settledCostUsd).digest("hex").slice(0, 16)}`;
+    const receiptId = `rcpt_${crypto.createHash("sha256").update(reservationId + settledCostUsd + effectiveModel).digest("hex").slice(0, 16)}`;
     vault.reconcileSpend(reservationId, settledCostUsd, receiptId);
     reconciled = true;
 
+    const responseHeaders: Record<string, string> = {
+      "Content-Type": "application/json",
+      "X-Aindigo-Cache": cacheStatus,
+      "X-Aindigo-Key-Prefix": auth.key_prefix!,
+      "X-Aindigo-Receipt-Id": receiptId,
+      "X-Aindigo-DLP": Array.from(allDetectedCategories).join(",") || "NONE",
+    };
+
+    if (downshifted) {
+      responseHeaders["X-Aindigo-Downshifted"] = `${req.model}->${effectiveModel}`;
+      if (downshiftReason) {
+        responseHeaders["X-Aindigo-Downshift-Reason"] = downshiftReason;
+      }
+    }
+
     return {
       statusCode: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "X-Aindigo-Cache": cacheStatus,
-        "X-Aindigo-Key-Prefix": auth.key_prefix!,
-        "X-Aindigo-Receipt-Id": receiptId,
-        "X-Aindigo-DLP": Array.from(allDetectedCategories).join(",") || "NONE",
-      },
+      headers: responseHeaders,
       body: JSON.stringify({
         id: `chatcmpl-${crypto.randomBytes(6).toString("hex")}`,
         object: "chat.completion",
