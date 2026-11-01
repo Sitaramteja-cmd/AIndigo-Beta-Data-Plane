@@ -35,3 +35,14 @@
   - Established normalized Drizzle ORM schema for PostgreSQL (`orgs`, `nodes`, `virtual_keys`, `receipts`) keyed by `org_id`.
   - Implemented and verified tenant scoping middleware ensuring strict data isolation between enterprise organizations.
 - **Verification Command:** `npx tsx packages/control-plane/src/db/tenant-isolation.test.ts`
+
+## [Module 1.2] Production Auth & Security (Argon2id Hashing)
+- **Date:** 2026-11-01
+- **Branch:** `v2-enterprise`
+- **Files Created:**
+  - `packages/control-plane/src/auth/password.ts`
+  - `packages/control-plane/src/auth/auth.test.ts`
+- **What Changed & Why:**
+  - Implemented Argon2id password hashing and verification module for secure enterprise user authentication.
+  - Verified unique salt generation, correct password validation, and incorrect password rejection.
+- **Verification Command:** `npx tsx packages/control-plane/src/auth/auth.test.ts`
