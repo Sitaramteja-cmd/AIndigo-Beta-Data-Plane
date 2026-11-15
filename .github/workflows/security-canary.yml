@@ -1,0 +1,41 @@
+name: AIndigo Security Canary
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-canary-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  security-canary:
+    name: Build and Egress Security Canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Shared package
+        run: npm run build --workspace=@aindigo/shared
+
+      - name: Build Data Plane
+        run: npm run build --workspace=@aindigo/data-plane
+
+      - name: Run isolated egress security canary
+        run: npm run canary
