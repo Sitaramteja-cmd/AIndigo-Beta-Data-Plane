@@ -183,7 +183,7 @@ test("3. Realistic Developer Corpus (280 labelled samples across prose, JSON, st
       const entry = stats.get(t)!;
       entry.tp += Math.min(expCount, actCount);
       if (actCount > expCount) entry.fp += actCount - expCount;
-      if (expCount > expCount) entry.fn += expCount - actCount;
+      if (actCount < expCount) entry.fn += expCount - actCount;
     }
   }
 

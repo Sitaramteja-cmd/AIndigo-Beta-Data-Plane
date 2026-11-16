@@ -135,12 +135,441 @@ async function runSyncTests() {
     assert.equal(resOutdated.error, "REPLAYED_OR_OUTDATED_POLICY_VERSION");
     console.log("✅ 7. Outdated / replayed policy version rejected.");
 
+    // 7A. Budget increase and decrease must preserve existing spend
+    // and outstanding reservations.
+    const budgetTestKey = vaultInit.createVirtualKey({
+      org_id: "org_kla",
+      name: "Budget Update Preservation Test",
+      provider: "openai",
+      allowed_models: ["gpt-4o"],
+      raw_provider_key: "sk-test-budget-update",
+      budget_limit_usd: 1.00,
+      nowMs: now,
+    });
+
+    // Spend $0.30 and hold another $0.40.
+    const alreadySpentAuth = vaultInit.authorize({
+      rawVirtualKey: budgetTestKey.rawVirtualKey,
+      requestedModel: "gpt-4o",
+      estimatedCostUsd: 0.50,
+    });
+
+    assert.equal(alreadySpentAuth.valid, true);
+
+    const alreadySpentSettlement = vaultInit.reconcileSpend(
+      alreadySpentAuth.reservation_id!,
+      0.30,
+      "rcpt_budget_update_spend"
+    );
+
+    assert.equal(alreadySpentSettlement.reconciled, true);
+
+    const outstandingAuth = vaultInit.authorize({
+      rawVirtualKey: budgetTestKey.rawVirtualKey,
+      requestedModel: "gpt-4o",
+      estimatedCostUsd: 0.40,
+    });
+
+    assert.equal(outstandingAuth.valid, true);
+
+    // Version 3: Increase budget from $1.00 to $2.00.
+    const budgetIncreasePayload: ControlPlanePolicyPayload = {
+      version: 3,
+      timestamp: Date.now(),
+      orgId: "org_kla",
+      revokedKeyIds: [],
+      budgetUpdates: [{
+        recordId: budgetTestKey.metadata.id,
+        newBudgetLimitUsd: 2.00,
+      }],
+    };
+
+    const signedBudgetIncrease =
+      ControlPlaneSyncClient.signPolicyPayload(
+        budgetIncreasePayload,
+        cpSecret
+      );
+
+    const budgetIncreaseResult = syncClient.applyPolicySync(
+      signedBudgetIncrease.signedJson,
+      signedBudgetIncrease.signature
+    );
+
+    assert.equal(budgetIncreaseResult.success, true);
+    assert.equal(budgetIncreaseResult.appliedBudgetUpdates, 1);
+
+    let budgetMetadata = vaultInit.getKeyMetadata(
+      budgetTestKey.metadata.id
+    )!;
+
+    assert.equal(budgetMetadata.budget_limit_micros, 2_000_000);
+    assert.equal(budgetMetadata.current_spend_micros, 300_000);
+    assert.equal(budgetMetadata.reserved_micros, 400_000);
+
+    const syncDb = (vaultInit as any).db;
+
+    const activePeriodId = `monthly:${new Date(now)
+      .toISOString()
+      .slice(0, 7)}`;
+
+    let activeUsage = syncDb.prepare(`
+      SELECT budget_limit_micros, spent_micros, reserved_micros
+      FROM budget_period_usage
+      WHERE key_id = ? AND period_id = ?
+    `).get(
+      budgetTestKey.metadata.id,
+      activePeriodId
+    );
+
+    assert.ok(activeUsage);
+    assert.equal(Number(activeUsage.budget_limit_micros), 2_000_000);
+    assert.equal(Number(activeUsage.spent_micros), 300_000);
+    assert.equal(Number(activeUsage.reserved_micros), 400_000);
+
+    console.log(
+      "✅ 7A. Budget increase preserves existing spend and reservations."
+    );
+
+    // Version 4: Decrease budget below existing spend + reservations.
+    // The update must succeed without clearing or reducing usage.
+    const budgetDecreasePayload: ControlPlanePolicyPayload = {
+      version: 4,
+      timestamp: Date.now(),
+      orgId: "org_kla",
+      revokedKeyIds: [],
+      budgetUpdates: [{
+        recordId: budgetTestKey.metadata.id,
+        newBudgetLimitUsd: 0.50,
+      }],
+    };
+
+    const signedBudgetDecrease =
+      ControlPlaneSyncClient.signPolicyPayload(
+        budgetDecreasePayload,
+        cpSecret
+      );
+
+    const budgetDecreaseResult = syncClient.applyPolicySync(
+      signedBudgetDecrease.signedJson,
+      signedBudgetDecrease.signature
+    );
+
+    assert.equal(budgetDecreaseResult.success, true);
+    assert.equal(budgetDecreaseResult.appliedBudgetUpdates, 1);
+
+    budgetMetadata = vaultInit.getKeyMetadata(
+      budgetTestKey.metadata.id
+    )!;
+
+    assert.equal(budgetMetadata.budget_limit_micros, 500_000);
+    assert.equal(budgetMetadata.current_spend_micros, 300_000);
+    assert.equal(budgetMetadata.reserved_micros, 400_000);
+
+    activeUsage = syncDb.prepare(`
+      SELECT budget_limit_micros, spent_micros, reserved_micros
+      FROM budget_period_usage
+      WHERE key_id = ? AND period_id = ?
+    `).get(
+      budgetTestKey.metadata.id,
+      activePeriodId
+    );
+
+    assert.ok(activeUsage);
+    assert.equal(Number(activeUsage.budget_limit_micros), 500_000);
+    assert.equal(Number(activeUsage.spent_micros), 300_000);
+    assert.equal(Number(activeUsage.reserved_micros), 400_000);
+
+    // Existing spend + reservations ($0.70) exceed the new $0.50 limit.
+    // New requests must be rejected, while the existing reservation remains.
+    const deniedAfterDecrease = vaultInit.authorize({
+      rawVirtualKey: budgetTestKey.rawVirtualKey,
+      requestedModel: "gpt-4o",
+      estimatedCostUsd: 0.01,
+    });
+
+    assert.equal(deniedAfterDecrease.valid, false);
+    assert.equal(deniedAfterDecrease.reason, "BUDGET_EXCEEDED");
+
+    console.log(
+      "✅ 7B. Budget decrease preserves usage and blocks additional requests."
+    );
+
+    // Version 5: NaN is serialized as JSON null.
+    // The signed sync handler must reject it and retain the existing limit.
+    const invalidBudgetPayload: ControlPlanePolicyPayload = {
+      version: 5,
+      timestamp: Date.now(),
+      orgId: "org_kla",
+      revokedKeyIds: [],
+      budgetUpdates: [{
+        recordId: budgetTestKey.metadata.id,
+        newBudgetLimitUsd: Number.NaN,
+      }],
+    };
+
+    const signedInvalidBudget =
+      ControlPlaneSyncClient.signPolicyPayload(
+        invalidBudgetPayload,
+        cpSecret
+      );
+
+    const invalidBudgetResult = syncClient.applyPolicySync(
+      signedInvalidBudget.signedJson,
+      signedInvalidBudget.signature
+    );
+
+    assert.equal(invalidBudgetResult.success, false);
+    assert.equal(invalidBudgetResult.error, "INVALID_BUDGET_VALUE");
+
+    budgetMetadata = vaultInit.getKeyMetadata(
+      budgetTestKey.metadata.id
+    )!;
+
+    assert.equal(
+      budgetMetadata.budget_limit_micros,
+      500_000,
+      "Invalid budget must not change the configured limit."
+    );
+
+    // Since the invalid sync was rolled back, version 5 is still available.
+    // Restore the budget to $1.00.
+    const restoreBudgetPayload: ControlPlanePolicyPayload = {
+      version: 5,
+      timestamp: Date.now(),
+      orgId: "org_kla",
+      revokedKeyIds: [],
+      budgetUpdates: [{
+        recordId: budgetTestKey.metadata.id,
+        newBudgetLimitUsd: 1.00,
+      }],
+    };
+
+    const signedRestoreBudget =
+      ControlPlaneSyncClient.signPolicyPayload(
+        restoreBudgetPayload,
+        cpSecret
+      );
+
+    const restoreBudgetResult = syncClient.applyPolicySync(
+      signedRestoreBudget.signedJson,
+      signedRestoreBudget.signature
+    );
+
+    assert.equal(restoreBudgetResult.success, true);
+
+    budgetMetadata = vaultInit.getKeyMetadata(
+      budgetTestKey.metadata.id
+    )!;
+
+    assert.equal(budgetMetadata.budget_limit_micros, 1_000_000);
+    assert.equal(budgetMetadata.current_spend_micros, 300_000);
+    assert.equal(budgetMetadata.reserved_micros, 400_000);
+
+    // Settle the reservation after the budget decrease and restoration.
+    const outstandingSettlement = vaultInit.reconcileSpend(
+      outstandingAuth.reservation_id!,
+      0.35,
+      "rcpt_budget_update_late_settlement"
+    );
+
+    assert.equal(outstandingSettlement.reconciled, true);
+    assert.equal(outstandingSettlement.actual_micros, 350_000);
+
+    budgetMetadata = vaultInit.getKeyMetadata(
+      budgetTestKey.metadata.id
+    )!;
+
+    assert.equal(budgetMetadata.current_spend_micros, 650_000);
+    assert.equal(budgetMetadata.reserved_micros, 0);
+
+    activeUsage = syncDb.prepare(`
+      SELECT budget_limit_micros, spent_micros, reserved_micros
+      FROM budget_period_usage
+      WHERE key_id = ? AND period_id = ?
+    `).get(
+      budgetTestKey.metadata.id,
+      activePeriodId
+    );
+
+    assert.ok(activeUsage);
+    assert.equal(Number(activeUsage.budget_limit_micros), 1_000_000);
+    assert.equal(Number(activeUsage.spent_micros), 650_000);
+    assert.equal(Number(activeUsage.reserved_micros), 0);
+
+    console.log(
+      "✅ 7C. Invalid budget rejected; restored budget and late settlement verified."
+    );
+
+    // 7D. Monthly budget update after UTC rollover but before
+    // the first request of the new month.
+    const rolloverTestNow = Date.now();
+
+    const previousMonthTimestamp = Date.UTC(
+      new Date(rolloverTestNow).getUTCFullYear(),
+      new Date(rolloverTestNow).getUTCMonth() - 1,
+      15,
+      12,
+      0,
+      0,
+      0
+    );
+
+    const previousPeriodDate = new Date(previousMonthTimestamp);
+    const previousPeriodId =
+      `monthly:${previousPeriodDate.toISOString().slice(0, 7)}`;
+
+    const currentPeriodId =
+      `monthly:${new Date(rolloverTestNow).toISOString().slice(0, 7)}`;
+
+    const rolloverTestKey = vaultInit.createVirtualKey({
+      org_id: "org_kla",
+      name: "Monthly Rollover Before First Request",
+      provider: "openai",
+      allowed_models: ["gpt-4o"],
+      raw_provider_key: "sk-test-monthly-rollover",
+      budget_limit_usd: 1.25,
+      budget_period: "monthly",
+      nowMs: previousMonthTimestamp,
+    });
+
+    // Confirm the key initially has only the previous month's usage row.
+    const previousUsageBefore = syncDb.prepare(`
+      SELECT budget_limit_micros, spent_micros, reserved_micros
+      FROM budget_period_usage
+      WHERE key_id = ? AND period_id = ?
+    `).get(
+      rolloverTestKey.metadata.id,
+      previousPeriodId
+    );
+
+    assert.ok(previousUsageBefore);
+    assert.equal(Number(previousUsageBefore.budget_limit_micros), 1_250_000);
+    assert.equal(Number(previousUsageBefore.spent_micros), 0);
+    assert.equal(Number(previousUsageBefore.reserved_micros), 0);
+
+    const currentUsageBefore = syncDb.prepare(`
+      SELECT period_id
+      FROM budget_period_usage
+      WHERE key_id = ? AND period_id = ?
+    `).get(
+      rolloverTestKey.metadata.id,
+      currentPeriodId
+    );
+
+    assert.equal(
+      currentUsageBefore,
+      undefined,
+      "Current month must not have a usage row before the policy update."
+    );
+
+    // Version 6: Apply the new monthly budget after the UTC month boundary.
+    const rolloverBudgetPayload: ControlPlanePolicyPayload = {
+      version: 6,
+      timestamp: rolloverTestNow,
+      orgId: "org_kla",
+      revokedKeyIds: [],
+      budgetUpdates: [{
+        recordId: rolloverTestKey.metadata.id,
+        newBudgetLimitUsd: 3.00,
+      }],
+    };
+
+    const signedRolloverBudget =
+      ControlPlaneSyncClient.signPolicyPayload(
+        rolloverBudgetPayload,
+        cpSecret
+      );
+
+    const rolloverBudgetResult = syncClient.applyPolicySync(
+      signedRolloverBudget.signedJson,
+      signedRolloverBudget.signature
+    );
+
+    assert.equal(rolloverBudgetResult.success, true);
+    assert.equal(rolloverBudgetResult.appliedBudgetUpdates, 1);
+
+    // The new period must now exist with the updated limit.
+    const currentUsageAfter = syncDb.prepare(`
+      SELECT budget_limit_micros, spent_micros, reserved_micros
+      FROM budget_period_usage
+      WHERE key_id = ? AND period_id = ?
+    `).get(
+      rolloverTestKey.metadata.id,
+      currentPeriodId
+    );
+
+    assert.ok(currentUsageAfter);
+    assert.equal(Number(currentUsageAfter.budget_limit_micros), 3_000_000);
+    assert.equal(Number(currentUsageAfter.spent_micros), 0);
+    assert.equal(Number(currentUsageAfter.reserved_micros), 0);
+
+    // The historical period must retain its original limit and usage.
+    const previousUsageAfter = syncDb.prepare(`
+      SELECT budget_limit_micros, spent_micros, reserved_micros
+      FROM budget_period_usage
+      WHERE key_id = ? AND period_id = ?
+    `).get(
+      rolloverTestKey.metadata.id,
+      previousPeriodId
+    );
+
+    assert.ok(previousUsageAfter);
+    assert.equal(Number(previousUsageAfter.budget_limit_micros), 1_250_000);
+    assert.equal(Number(previousUsageAfter.spent_micros), 0);
+    assert.equal(Number(previousUsageAfter.reserved_micros), 0);
+
+    // Verify that a real authorization can use the newly configured
+    // budget immediately after the policy update.
+    const rolloverAuthorization = vaultInit.authorize({
+      rawVirtualKey: rolloverTestKey.rawVirtualKey,
+      requestedModel: "gpt-4o",
+      estimatedCostUsd: 0.25,
+      nowMs: rolloverTestNow,
+    });
+
+    assert.equal(rolloverAuthorization.valid, true);
+
+    const rolloverSettlement = vaultInit.reconcileSpend(
+      rolloverAuthorization.reservation_id!,
+      0.20,
+      "rcpt_monthly_rollover_sync"
+    );
+
+    assert.equal(rolloverSettlement.reconciled, true);
+    assert.equal(rolloverSettlement.actual_micros, 200_000);
+
+    const currentUsageAfterSettlement = syncDb.prepare(`
+      SELECT budget_limit_micros, spent_micros, reserved_micros
+      FROM budget_period_usage
+      WHERE key_id = ? AND period_id = ?
+    `).get(
+      rolloverTestKey.metadata.id,
+      currentPeriodId
+    );
+
+    assert.equal(
+      Number(currentUsageAfterSettlement.budget_limit_micros),
+      3_000_000
+    );
+    assert.equal(
+      Number(currentUsageAfterSettlement.spent_micros),
+      200_000
+    );
+    assert.equal(
+      Number(currentUsageAfterSettlement.reserved_micros),
+      0
+    );
+
+    console.log(
+      "✅ 7D. Monthly rollover policy update initializes the new period before the first request; historical period preserved."
+    );
+
     // 8. Successful Revocation Followed by Invalid Budget (Entire Transaction Rolled Back)
     const preRevokeMeta = vaultInit.getKeyMetadata(keyOrgA.metadata.id);
     assert.equal(preRevokeMeta?.revoked_at, null);
 
     const payloadAtomicFail: ControlPlanePolicyPayload = {
-      version: 3,
+      version: 7,
       timestamp: now,
       orgId: "org_kla",
       revokedKeyIds: [keyOrgA.metadata.id], // valid revocation
@@ -158,7 +587,7 @@ async function runSyncTests() {
     // 9. Batch limit (101 operations) rejection
     const manyUpdates = Array.from({ length: 101 }, (_, i) => ({ recordId: `key_${i}`, newBudgetLimitUsd: 1.00 }));
     const payloadTooMany: ControlPlanePolicyPayload = {
-      version: 3,
+      version: 7,
       timestamp: now,
       orgId: "org_kla",
       revokedKeyIds: [],

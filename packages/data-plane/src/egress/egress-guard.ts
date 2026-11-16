@@ -1,6 +1,6 @@
-﻿import fs from "node:fs";
+import fs from "node:fs";
 import path from "node:path";
-import { SignedReceipt } from "../crypto/node-identity";
+import { SignedReceipt } from "../crypto/node-identity.js";
 
 /**
  * Strict allowlist of keys permitted to leave the Customer Data Plane

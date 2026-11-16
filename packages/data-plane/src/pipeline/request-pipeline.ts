@@ -36,6 +36,11 @@ export interface PipelineRequest {
   timeoutMs?: number;
 }
 
+export type UpstreamPipelineRequest = Omit<
+  PipelineRequest,
+  "bearerToken"
+>;
+
 export interface UpstreamResult {
   responseText: string;
   promptTokens: number;
@@ -75,7 +80,9 @@ function deepScanAndRedact(key: string, val: unknown, detectedCategories: Set<st
       return val;
     }
     const scan = scanAndRedactWithChecksums(val);
-    scan.detectedCategories.forEach((c) => detectedCategories.add(c));
+    scan.detections.forEach((detection) =>
+  detectedCategories.add(detection.type)
+);
     return scan.redactedText;
   }
   if (Array.isArray(val)) {
@@ -123,7 +130,7 @@ export async function processChatCompletion(
   cache: SafeExactMatchCache,
   governor: FinOpsGovernor | undefined,
   req: PipelineRequest,
-  upstreamExecutor: (decryptedKey: string, effectiveModel: string, scrubbedReq: PipelineRequest, signal: AbortSignal) => Promise<UpstreamResult>
+  upstreamExecutor: (decryptedKey: string, effectiveModel: string, scrubbedReq: UpstreamPipelineRequest, signal: AbortSignal) => Promise<UpstreamResult>
 ): Promise<PipelineResponse> {
   if (req.stream) {
     return {
@@ -138,7 +145,7 @@ export async function processChatCompletion(
   }
 
   // 1. Peek Key Metadata for FinOps Governor Evaluation
-  const keyMeta = vault.peekKey(req.bearerToken);
+  const keyMeta = vault.getKeyMetadataByVirtualKey(req.bearerToken);
   let effectiveModel = req.model;
   let downshifted = false;
   let downshiftReason: string | undefined;
@@ -210,7 +217,7 @@ export async function processChatCompletion(
     }
 
     const { bearerToken: _omit, ...safeReq } = req;
-    const scrubbedReqPipeline: PipelineRequest = {
+    const scrubbedReqPipeline: UpstreamPipelineRequest = {
       ...safeReq,
       max_tokens: effectiveMaxTokens,
       system: scrubbedSystem as any,

@@ -49,7 +49,7 @@ async function runPipelineTests() {
       stream: true,
       estimatedInputTokens: 10,
     };
-    const resStream = await processChatCompletion(vault, cache, streamReq, mockExecutor);
+    const resStream = await processChatCompletion(vault, cache, undefined, streamReq, mockExecutor);
     assert.equal(resStream.statusCode, 400);
     console.log("✅ 1. Streaming Request Rejection Verified.");
 
@@ -58,14 +58,14 @@ async function runPipelineTests() {
       bearerToken: rawVirtualKey,
       system: "You are helpful. My card is 4000 0000 0000 0002.",
       messages: [
-        { role: "user", content: "Look up user with PAN ABCDE1234F" }
+        { role: "user", content: "Look up user with PAN ABCPE1234F" }
       ],
       model: "gpt-4o-mini",
       temperature: 0,
       estimatedInputTokens: 50,
     };
 
-    const res1 = await processChatCompletion(vault, cache, sensitiveReq, mockExecutor);
+    const res1 = await processChatCompletion(vault, cache, undefined, sensitiveReq, mockExecutor);
     assert.equal(res1.statusCode, 200);
     assert.equal(res1.cacheStatus, "BYPASS");
     assert.equal(upstreamCalls, 1);
@@ -83,12 +83,12 @@ async function runPipelineTests() {
       estimatedInputTokens: 20,
     };
 
-    const resCleanMiss = await processChatCompletion(vault, cache, cleanReq, mockExecutor);
+    const resCleanMiss = await processChatCompletion(vault, cache, undefined, cleanReq, mockExecutor);
     assert.equal(resCleanMiss.statusCode, 200);
     assert.equal(resCleanMiss.cacheStatus, "MISS");
     assert.equal(upstreamCalls, 2);
 
-    const resCleanHit = await processChatCompletion(vault, cache, cleanReq, mockExecutor);
+    const resCleanHit = await processChatCompletion(vault, cache, undefined, cleanReq, mockExecutor);
     assert.equal(resCleanHit.statusCode, 200);
     assert.equal(resCleanHit.cacheStatus, "HIT");
     assert.equal(upstreamCalls, 2);
@@ -104,7 +104,7 @@ async function runPipelineTests() {
       estimatedInputTokens: 20,
     };
     const rateLimitExecutor = async () => { throw new UpstreamError(429, "Rate limit hit"); };
-    const res429 = await processChatCompletion(vault, cache, errorReq, rateLimitExecutor);
+    const res429 = await processChatCompletion(vault, cache, undefined, errorReq, rateLimitExecutor);
     assert.equal(res429.statusCode, 429);
     assert.equal(res429.headers["X-Aindigo-Error"], "RATE_LIMIT_EXCEEDED");
     console.log("✅ 4. Typed Upstream Error Mapping (429) Verified.");

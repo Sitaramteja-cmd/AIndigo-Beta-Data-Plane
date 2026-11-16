@@ -39,12 +39,25 @@ export function cleanDigits(input: string): string {
 export function computeVerhoeffCheckDigit(numericPrefix: string): number {
   let c = 0;
   const len = numericPrefix.length;
+
   for (let i = 0; i < len; i++) {
     const digit = numericPrefix.charCodeAt(len - 1 - i) - 48;
     if (digit < 0 || digit > 9) return -1;
-    c = VERHOEFF_D[c][VERHOEFF_P[(i + 1) % 8][digit]];
+
+    const permutationRow = VERHOEFF_P[(i + 1) % 8];
+    const permutationValue = permutationRow?.[digit];
+    const multiplicationRow = VERHOEFF_D[c];
+    const nextValue =
+      multiplicationRow?.[permutationValue ?? -1];
+
+    if (permutationValue === undefined || nextValue === undefined) {
+      return -1;
+    }
+
+    c = nextValue;
   }
-  return VERHOEFF_INV[c];
+
+  return VERHOEFF_INV[c] ?? -1;
 }
 
 /** Validates a 12-digit Indian National ID candidate using first-digit rules (2-9) + Verhoeff D5 checksum. */
@@ -56,7 +69,14 @@ export function isValidVerhoeff12Id(candidate: string): boolean {
   let c = 0;
   for (let i = 0; i < 12; i++) {
     const digit = digits.charCodeAt(11 - i) - 48;
-    c = VERHOEFF_D[c][VERHOEFF_P[i % 8][digit]];
+        const permutationValue = VERHOEFF_P[i % 8]?.[digit];
+    const nextValue =
+      permutationValue === undefined
+        ? undefined
+        : VERHOEFF_D[c]?.[permutationValue];
+
+    if (nextValue === undefined) return false;
+    c = nextValue;
   }
   return c === 0;
 }
@@ -137,17 +157,25 @@ const BASE36_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 /** Computes the Mod-36 check character for the first 14 characters of an Indian GSTIN. */
 export function computeGstinCheckChar(prefix14: string): string {
   const s = prefix14.toUpperCase();
+  if (s.length !== 14) return "";
+
   let sum = 0;
+
   for (let i = 0; i < 14; i++) {
-    const code = BASE36_CHARS.indexOf(s[i]);
+    const character = s[i];
+    if (character === undefined) return "";
+
+    const code = BASE36_CHARS.indexOf(character);
     if (code === -1) return "";
+
     const factor = i % 2 === 0 ? 1 : 2;
     const prod = code * factor;
     sum += Math.floor(prod / 36) + (prod % 36);
   }
+
   const rem = sum % 36;
   const checkIdx = (36 - rem) % 36;
-  return BASE36_CHARS[checkIdx];
+  return BASE36_CHARS[checkIdx] ?? "";
 }
 
 /** Validates 15-character Indian GSTIN (Strict 2-digit State Code + PAN + Entity + Z + Mod-36 Checksum). */
@@ -161,9 +189,19 @@ export function isValidIndianGstin(candidate: string): boolean {
     return false;
   }
   if (!isValidIndianPan(s.slice(2, 12))) return false;
-  if (!/^[1-9A-Z]$/.test(s[12])) return false;
-  if (s[13] !== "Z") return false;
-  return computeGstinCheckChar(s.slice(0, 14)) === s[14];
+   const entityCode = s[12];
+  const checksumMarker = s[13];
+  const suppliedCheckChar = s[14];
+
+  if (entityCode === undefined || !/^[1-9A-Z]$/.test(entityCode)) {
+    return false;
+  }
+
+  if (checksumMarker !== "Z" || suppliedCheckChar === undefined) {
+    return false;
+  }
+
+  return computeGstinCheckChar(s.slice(0, 14)) === suppliedCheckChar;
 }
 
 /** Validates 11-character Indian IFSC code. */
@@ -244,7 +282,9 @@ export function isValidUsAbaRouting(candidate: string): boolean {
   const weights = [3, 7, 1, 3, 7, 1, 3, 7, 1];
   let sum = 0;
   for (let i = 0; i < 9; i++) {
-    sum += (d.charCodeAt(i) - 48) * weights[i];
+        const weight = weights[i];
+    if (weight === undefined) return false;
+    sum += (d.charCodeAt(i) - 48) * weight;
   }
   return sum > 0 && sum % 10 === 0;
 }
@@ -287,7 +327,9 @@ export function isValidAustralianAbn(candidate: string): boolean {
   for (let i = 0; i < 11; i++) {
     let digit = d.charCodeAt(i) - 48;
     if (i === 0) digit -= 1;
-    sum += digit * weights[i];
+        const weight = weights[i];
+    if (weight === undefined) return false;
+    sum += digit * weight;
   }
   return sum % 89 === 0;
 }
@@ -299,7 +341,9 @@ export function isValidAustralianTfn(candidate: string): boolean {
   const weights = [1, 4, 3, 7, 5, 8, 6, 9, 10];
   let sum = 0;
   for (let i = 0; i < 9; i++) {
-    sum += (d.charCodeAt(i) - 48) * weights[i];
+        const weight = weights[i];
+    if (weight === undefined) return false;
+    sum += (d.charCodeAt(i) - 48) * weight;
   }
   return sum > 0 && sum % 11 === 0;
 }
@@ -322,7 +366,12 @@ function crc32Unsigned(str: string): number {
   let crc = 0xffffffff;
   for (let i = 0; i < str.length; i++) {
     const byte = str.charCodeAt(i) & 0xff;
-    crc = CRC32_TABLE[(crc ^ byte) & 0xff] ^ (crc >>> 8);
+        const tableValue = CRC32_TABLE[(crc ^ byte) & 0xff];
+    if (tableValue === undefined) {
+      throw new Error("Invalid CRC32 table index.");
+    }
+
+    crc = tableValue ^ (crc >>> 8);
   }
   return (crc ^ 0xffffffff) >>> 0;
 }
@@ -331,7 +380,12 @@ export function encodeBase62Fixed6(num: number): string {
   let n = num >>> 0;
   const chars = new Array<string>(6).fill("0");
   for (let i = 5; i >= 0; i--) {
-    chars[i] = BASE62_ALPHABET[n % 62];
+        const character = BASE62_ALPHABET[n % 62];
+    if (character === undefined) {
+      throw new Error("Invalid Base62 character index.");
+    }
+
+    chars[i] = character;
     n = Math.floor(n / 62);
   }
   return chars.join("");

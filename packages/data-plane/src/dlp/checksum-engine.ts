@@ -146,7 +146,7 @@ const DETECTOR_SPECS: ReadonlyArray<DetectorSpec> = [
     type: "SAUDI_NATIONAL_ID",
     priority: 11,
     candidateRegex: /(?<![A-Za-z0-9_.-])[12]\d{9}(?![A-Za-z0-9_.-])/g,
-    contextRegex: /\b(?:iqama|saudi|national_id|nin|hijri|resident_id)\b/i,
+    contextRegex: /(?:^|[^A-Za-z0-9])(?:iqama|saudi|national_id|nin|hijri|resident_id)(?=$|[^A-Za-z0-9])/i,
     requireContext: () => true,
     validate: (raw, hasContext) => ({ valid: hasContext && isValidSaudiNationalId(raw) }),
   },
@@ -162,7 +162,7 @@ const DETECTOR_SPECS: ReadonlyArray<DetectorSpec> = [
     type: "US_ABA_ROUTING",
     priority: 13,
     candidateRegex: /(?<![A-Za-z0-9_.-])\d{9}(?![A-Za-z0-9_.-])/g,
-    contextRegex: /\b(?:aba|routing|rtn|transit|ach)\b/i,
+    contextRegex: /\b(?:aba|routing_aba|routing|rtn|transit|ach)\b/i,
     requireContext: () => true,
     validate: (raw, hasContext) => ({ valid: hasContext && isValidUsAbaRouting(raw) }),
   },
@@ -211,7 +211,6 @@ export function scanAndRedactWithChecksums(
       const res = spec.validate(rawMatch, hasContext);
       if (res.valid) {
         // DIAGNOSTIC LOGGING TO IDENTIFY WHICH DETECTOR MATCHED UNWANTED TOKENS
-        console.log(`[DLP_MATCH_DEBUG] Type: ${spec.type}, Match: "${rawMatch}", Start: ${start}, HasContext: ${hasContext}`);
         candidates.push({
           type: spec.type,
           priority: spec.priority,
@@ -242,16 +241,22 @@ export function scanAndRedactWithChecksums(
 
   accepted.sort((a, b) => a.start - b.start);
 
-  accepted.forEach((span, idx) => {
+    accepted.forEach((span, idx) => {
     span.replacement = onVaultToken
       ? onVaultToken(span.type, span.rawMatch, idx + 1)
       : `[REDACTED_${span.type}]`;
   });
 
   let redactedText = text;
+
   for (let i = accepted.length - 1; i >= 0; i--) {
     const span = accepted[i];
-    redactedText = redactedText.slice(0, span.start) + span.replacement + redactedText.slice(span.end);
+    if (!span) continue;
+
+    redactedText =
+      redactedText.slice(0, span.start) +
+      span.replacement +
+      redactedText.slice(span.end);
   }
 
   return { redactedText, detections: accepted };

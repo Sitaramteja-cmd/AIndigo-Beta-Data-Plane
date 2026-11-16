@@ -7,6 +7,9 @@ export type BudgetPeriod = "monthly" | "lifetime";
 
 export const MICROS_PER_USD = 1_000_000;
 export const DEFAULT_RESERVATION_TTL_MS = 10 * 60 * 1000; // 10 minutes
+export const VAULT_INSTANCE_LEASE_DURATION_MS = 45 * 1000; // 45 seconds
+export const VAULT_INSTANCE_HEARTBEAT_INTERVAL_MS = 10 * 1000; // 10 seconds
+export const VAULT_INSTANCE_RECOVERY_GRACE_MS = 30 * 1000; // 30 seconds
 
 export function usdToMicros(usd: number): number {
   if (typeof usd !== "number" || !Number.isFinite(usd) || usd < 0) {
@@ -57,6 +60,7 @@ export interface ReservationHandle {
   reservation_id: string;
   record_id: string;
   org_id: string;
+  period_id: string;
   model: string;
   reserved_micros: number;
   created_at: number;
@@ -145,6 +149,10 @@ export function estimateRequestCostUsd(params: {
 }
 
 export class VirtualKeyVault {
+  private readonly instanceId: string = crypto.randomUUID();
+  private heartbeatTimer: NodeJS.Timeout | null = null;
+  private leaseHealthy = false;
+  private closed = false;
   private db: DatabaseSync;
   private masterKeys: Map<number, Buffer> = new Map();
   private activeKeyVersion: number;
@@ -156,9 +164,6 @@ export class VirtualKeyVault {
   private stmtGetByHash!: StatementSync;
   private stmtGetById!: StatementSync;
   private stmtRolloverPeriod!: StatementSync;
-  private stmtReserveBudget!: StatementSync;
-  private stmtReconcileSpend!: StatementSync;
-  private stmtReleaseReservationOnly!: StatementSync;
   private stmtInsertLedger!: StatementSync;
   private stmtRevokeKey!: StatementSync;
   private stmtGetLedgerByKey!: StatementSync;
@@ -216,13 +221,22 @@ export class VirtualKeyVault {
       }
     }
 
+        // Wait for competing SQLite writers instead of immediately returning SQLITE_BUSY.
+    // Each process has its own connection and therefore its own busy timeout.
+    this.db.exec("PRAGMA busy_timeout = 5000;");
+
     this.db.exec("PRAGMA journal_mode = WAL;");
     this.db.exec("PRAGMA synchronous = NORMAL;");
     this.db.exec("PRAGMA foreign_keys = ON;");
 
     this.initSchema();
+    this.migrateDurableBudgetReservations();
+    this.migrateReservationOwnership();
     this.prepareStatements();
     this.runStartupSelfChecks();
+    this.registerInstanceLease(Date.now());
+    this.leaseHealthy = true;
+    this.startHeartbeat();
   }
 
   public getActiveKeyVersion(): number {
@@ -300,7 +314,338 @@ export class VirtualKeyVault {
         FOREIGN KEY (key_id) REFERENCES virtual_keys(id)
       );
       CREATE INDEX IF NOT EXISTS idx_spend_ledger_key_ts ON spend_ledger(key_id, ts);
+      CREATE TABLE IF NOT EXISTS budget_period_usage (
+        key_id TEXT NOT NULL,
+        period_id TEXT NOT NULL,
+        budget_limit_micros INTEGER NOT NULL,
+        spent_micros INTEGER NOT NULL DEFAULT 0,
+        reserved_micros INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        PRIMARY KEY (key_id, period_id),
+        FOREIGN KEY (key_id) REFERENCES virtual_keys(id),
+        CHECK (budget_limit_micros >= 0),
+        CHECK (spent_micros >= 0),
+        CHECK (reserved_micros >= 0)
+      );
+
+      CREATE TABLE IF NOT EXISTS budget_reservations (
+        reservation_id TEXT PRIMARY KEY,
+        key_id TEXT NOT NULL,
+        org_id TEXT NOT NULL,
+        period_id TEXT NOT NULL,
+        model TEXT NOT NULL,
+        reserved_micros INTEGER NOT NULL,
+        actual_micros INTEGER,
+        status TEXT NOT NULL,
+        receipt_id TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        settled_at INTEGER,
+        legacy INTEGER NOT NULL DEFAULT 0,
+        FOREIGN KEY (key_id) REFERENCES virtual_keys(id),
+        CHECK (reserved_micros >= 0),
+        CHECK (actual_micros IS NULL OR actual_micros >= 0),
+        CHECK (status IN ('RESERVED', 'UNCERTAIN', 'SETTLED', 'RELEASED')),
+        CHECK (legacy IN (0, 1))
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_budget_reservations_key_period
+        ON budget_reservations(key_id, period_id);
+
+      CREATE INDEX IF NOT EXISTS idx_budget_reservations_status_created
+        ON budget_reservations(status, created_at);
+
+      CREATE TABLE IF NOT EXISTS vault_migrations (
+        migration_id TEXT PRIMARY KEY,
+        applied_at INTEGER NOT NULL
+      );
     `);
+  }
+
+
+  private migrateDurableBudgetReservations(): void {
+    const migrationId = "durable_budget_reservations_v1";
+
+    this.runInTransaction(() => {
+      const applied = this.db
+        .prepare(
+          `SELECT migration_id FROM vault_migrations WHERE migration_id = ?`
+        )
+        .get(migrationId) as { migration_id: string } | undefined;
+
+      if (applied) {
+        return;
+      }
+
+      const keys = this.db
+        .prepare(`SELECT * FROM virtual_keys ORDER BY id ASC`)
+        .all() as any[];
+
+      const insertUsage = this.db.prepare(`
+        INSERT INTO budget_period_usage (
+          key_id, period_id, budget_limit_micros,
+          spent_micros, reserved_micros, created_at, updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `);
+
+      const insertLegacyReservation = this.db.prepare(`
+        INSERT INTO budget_reservations (
+          reservation_id, key_id, org_id, period_id, model,
+          reserved_micros, actual_micros, status, receipt_id,
+          created_at, updated_at, settled_at, legacy
+        )
+        VALUES (?, ?, ?, ?, ?, ?, NULL, 'UNCERTAIN', NULL, ?, ?, NULL, 1)
+      `);
+
+      const migrationNow = Date.now();
+
+      for (const row of keys) {
+        const keyId = String(row.id);
+        const orgId = String(row.org_id);
+        const budgetPeriod = String(row.budget_period);
+
+        const budgetLimitMicros = Number(row.budget_limit_micros);
+        const spentMicros = Number(row.current_spend_micros);
+        const reservedMicros = Number(row.reserved_micros);
+        const createdAt = Number(row.created_at);
+
+        for (const [field, value] of [
+          ["budget_limit_micros", budgetLimitMicros],
+          ["current_spend_micros", spentMicros],
+          ["reserved_micros", reservedMicros],
+          ["created_at", createdAt],
+        ] as const) {
+          if (!Number.isSafeInteger(value) || value < 0) {
+            throw new Error(
+              `VAULT_MIGRATION_ERROR: Invalid ${field} for key ${keyId}.`
+            );
+          }
+        }
+
+        let periodId: string;
+let migratedSpendMicros = spentMicros;
+
+if (budgetPeriod === "lifetime") {
+  periodId = "lifetime";
+} else if (budgetPeriod === "monthly") {
+  const resetAt = Number(row.period_reset_at);
+  const resetDate = new Date(resetAt);
+
+  if (
+    !Number.isSafeInteger(resetAt) ||
+    !Number.isFinite(resetDate.getTime()) ||
+    resetDate.getUTCDate() !== 1 ||
+    resetDate.getUTCHours() !== 0 ||
+    resetDate.getUTCMinutes() !== 0 ||
+    resetDate.getUTCSeconds() !== 0 ||
+    resetDate.getUTCMilliseconds() !== 0
+  ) {
+    throw new Error(
+      `VAULT_MIGRATION_ERROR: Invalid monthly period reset for key ${keyId}.`
+    );
+  }
+
+  const periodDate =
+    resetAt <= migrationNow
+      ? new Date(migrationNow)
+      : new Date(
+          Date.UTC(
+            resetDate.getUTCFullYear(),
+            resetDate.getUTCMonth() - 1,
+            1
+          )
+        );
+
+  const year = periodDate.getUTCFullYear();
+  const month = String(periodDate.getUTCMonth() + 1).padStart(2, "0");
+
+  periodId = `monthly:${year}-${month}`;
+
+  if (resetAt <= migrationNow) {
+    migratedSpendMicros = 0;
+  }
+} else {
+  throw new Error(
+    `VAULT_MIGRATION_ERROR: Unsupported budget period for key ${keyId}.`
+  );
+}
+
+        insertUsage.run(
+          keyId,
+          periodId,
+          budgetLimitMicros,
+          migratedSpendMicros,
+          reservedMicros,
+          createdAt,
+          migrationNow
+        );
+
+        if (reservedMicros > 0) {
+          insertLegacyReservation.run(
+            `legacy_${keyId}`,
+            keyId,
+            orgId,
+            periodId,
+            "LEGACY_UNKNOWN",
+            reservedMicros,
+            createdAt,
+            migrationNow
+          );
+        }
+      }
+
+      this.db.prepare(`
+        INSERT INTO vault_migrations (migration_id, applied_at)
+        VALUES (?, ?)
+      `).run(migrationId, migrationNow);
+    });
+  }
+
+
+  private migrateReservationOwnership(): void {
+    const migrationId = "reservation_ownership_v1";
+    const migrationNow = Date.now();
+
+    this.runInTransaction(() => {
+      const applied = this.db
+        .prepare(
+          `SELECT migration_id FROM vault_migrations WHERE migration_id = ?`
+        )
+        .get(migrationId) as { migration_id: string } | undefined;
+
+      if (applied) {
+        return;
+      }
+
+      const columns = this.db
+        .prepare(`PRAGMA table_info(budget_reservations)`)
+        .all() as Array<{ name: string }>;
+
+      const hasOwnerId = columns.some(
+        (column) => column.name === "owner_id"
+      );
+
+      if (!hasOwnerId) {
+        this.db.exec(`
+          ALTER TABLE budget_reservations
+          ADD COLUMN owner_id TEXT;
+        `);
+      }
+
+      this.db.exec(`
+        CREATE TABLE IF NOT EXISTS vault_instances (
+          instance_id TEXT PRIMARY KEY,
+          created_at INTEGER NOT NULL,
+          heartbeat_at INTEGER NOT NULL,
+          lease_expires_at INTEGER NOT NULL,
+          released_at INTEGER
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_budget_reservations_owner_status
+          ON budget_reservations(owner_id, status);
+      `);
+
+      // Existing reservations have no provable live owner.
+      // Preserve their budget holds and mark them uncertain.
+      this.db.prepare(`
+        UPDATE budget_reservations
+        SET status = 'UNCERTAIN',
+            updated_at = ?
+        WHERE status = 'RESERVED'
+          AND owner_id IS NULL
+      `).run(migrationNow);
+
+      this.db.prepare(`
+        INSERT INTO vault_migrations (migration_id, applied_at)
+        VALUES (?, ?)
+      `).run(migrationId, migrationNow);
+    });
+  }
+
+  private registerInstanceLease(nowMs: number): void {
+    this.runInTransaction(() => {
+      this.db.prepare(`
+        INSERT INTO vault_instances (
+          instance_id,
+          created_at,
+          heartbeat_at,
+          lease_expires_at,
+          released_at
+        )
+        VALUES (?, ?, ?, ?, NULL)
+      `).run(
+        this.instanceId,
+        nowMs,
+        nowMs,
+        nowMs + VAULT_INSTANCE_LEASE_DURATION_MS
+      );
+    });
+  }
+
+  private startHeartbeat(): void {
+    if (this.heartbeatTimer || this.closed) {
+      return;
+    }
+
+    this.heartbeatTimer = setInterval(
+      () => this.renewInstanceLease(),
+      VAULT_INSTANCE_HEARTBEAT_INTERVAL_MS
+    );
+
+    this.heartbeatTimer.unref();
+  }
+
+  private renewInstanceLease(): void {
+    if (this.closed) {
+      return;
+    }
+
+    try {
+      const nowMs = Date.now();
+
+      const result = this.runInTransaction(() => {
+        return this.db.prepare(`
+          UPDATE vault_instances
+          SET heartbeat_at = ?,
+              lease_expires_at = ?
+          WHERE instance_id = ?
+            AND released_at IS NULL
+            AND lease_expires_at > ?
+        `).run(
+          nowMs,
+          nowMs + VAULT_INSTANCE_LEASE_DURATION_MS,
+          this.instanceId,
+          nowMs
+        );
+      });
+
+      if (Number(result.changes) !== 1) {
+        this.leaseHealthy = false;
+        this.reportHeartbeatFailure("LeaseNotRenewable");
+        return;
+      }
+
+      this.leaseHealthy = true;
+    } catch (error) {
+      this.leaseHealthy = false;
+      this.reportHeartbeatFailure(
+        error instanceof Error ? error.constructor.name : "UnknownError"
+      );
+    }
+  }
+
+  private reportHeartbeatFailure(errorClass: string): void {
+    try {
+      this.onDiagnosticError({
+        code: "VAULT_INTERNAL_ERROR",
+        errorClass,
+        recordId: null,
+      });
+    } catch {
+      // Diagnostic callbacks must not interrupt Vault lifecycle management.
+    }
   }
 
   private prepareStatements(): void {
@@ -327,27 +672,6 @@ export class VirtualKeyVault {
       WHERE id = ?
     `);
 
-    this.stmtReserveBudget = this.db.prepare(`
-      UPDATE virtual_keys
-      SET reserved_micros = reserved_micros + ?,
-          last_used_at = ?
-      WHERE id = ?
-        AND (current_spend_micros + reserved_micros + ?) <= budget_limit_micros
-    `);
-
-    this.stmtReconcileSpend = this.db.prepare(`
-      UPDATE virtual_keys
-      SET reserved_micros = MAX(0, reserved_micros - ?),
-          current_spend_micros = current_spend_micros + ?
-      WHERE id = ?
-    `);
-
-    this.stmtReleaseReservationOnly = this.db.prepare(`
-      UPDATE virtual_keys
-      SET reserved_micros = MAX(0, reserved_micros - ?)
-      WHERE id = ?
-    `);
-
     this.stmtInsertLedger = this.db.prepare(`
       INSERT INTO spend_ledger (id, key_id, org_id, ts, reserved_micros, actual_micros, model, receipt_id)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -363,9 +687,6 @@ export class VirtualKeyVault {
   }
 
   private runStartupSelfChecks(): void {
-    this.db.prepare(`UPDATE virtual_keys SET reserved_micros = 0 WHERE reserved_micros > 0`).run();
-    this.inFlightReservations.clear();
-
     const versions = this.db
       .prepare(`SELECT DISTINCT key_version FROM virtual_keys`)
       .all() as Array<{ key_version: number }>;
@@ -515,24 +836,54 @@ export class VirtualKeyVault {
     const period_reset_at =
       budget_period === "monthly" ? getNextMonthlyReset(now) : Number.MAX_SAFE_INTEGER;
 
-    this.stmtInsertKey.run(
-      id,
-      normalizedOrgId,
-      normalizedName,
-      key_prefix,
-      key_hash,
-      normalizedProvider,
-      JSON.stringify(normalizedModels),
-      encrypted,
-      iv,
-      authTag,
-      keyVersion,
-      budget_limit_micros,
-      budget_period,
-      period_reset_at,
-      input.expires_at ?? null,
-      now
-    );
+        const periodDate = new Date(now);
+    const year = periodDate.getUTCFullYear();
+    const month = String(periodDate.getUTCMonth() + 1).padStart(2, "0");
+
+    const periodId =
+      budget_period === "lifetime"
+        ? "lifetime"
+        : `monthly:${year}-${month}`;
+
+    this.runInTransaction(() => {
+      this.stmtInsertKey.run(
+        id,
+        normalizedOrgId,
+        normalizedName,
+        key_prefix,
+        key_hash,
+        normalizedProvider,
+        JSON.stringify(normalizedModels),
+        encrypted,
+        iv,
+        authTag,
+        keyVersion,
+        budget_limit_micros,
+        budget_period,
+        period_reset_at,
+        input.expires_at ?? null,
+        now
+      );
+
+      this.db.prepare(`
+        INSERT INTO budget_period_usage (
+          key_id,
+          period_id,
+          budget_limit_micros,
+          spent_micros,
+          reserved_micros,
+          created_at,
+          updated_at
+        )
+        VALUES (?, ?, ?, 0, 0, ?, ?)
+      `).run(
+        id,
+        periodId,
+        budget_limit_micros,
+        now,
+        now
+      );
+    });
 
     return {
       rawVirtualKey,
@@ -560,8 +911,10 @@ export class VirtualKeyVault {
     };
   }
 
+
   public authorize(opts: AuthorizeOptions): AuthorizeResult {
     const nowMs = opts.nowMs ?? Date.now();
+
     if (!opts.rawVirtualKey || !opts.rawVirtualKey.startsWith("vk-aindigo-")) {
       return { valid: false, reason: "INVALID_KEY" };
     }
@@ -579,10 +932,32 @@ export class VirtualKeyVault {
     const effectiveModel = opts.downshiftedModel ?? opts.requestedModel;
 
     let candidateRecordId: string | null = null;
+    const createdHandle: { current: ReservationHandle | null } = { current: null };
+
+    // Fail closed when this Vault instance does not own a healthy lease.
+    if (this.closed || !this.leaseHealthy) {
+      return { valid: false, reason: "VAULT_INTERNAL_ERROR" };
+    }
 
     try {
-      return this.runInTransaction((): AuthorizeResult => {
+      const result = this.runInTransaction((): AuthorizeResult => {
+        const activeLease = this.db.prepare(`
+          SELECT instance_id
+          FROM vault_instances
+          WHERE instance_id = ?
+            AND released_at IS NULL
+            AND lease_expires_at > ?
+        `).get(this.instanceId, Date.now()) as
+          | { instance_id: string }
+          | undefined;
+
+        if (!activeLease) {
+          this.leaseHealthy = false;
+          return { valid: false, reason: "VAULT_INTERNAL_ERROR" };
+        }
+
         const row = this.stmtGetByHash.get(incomingHash) as any;
+
         if (!row) {
           return { valid: false, reason: "INVALID_KEY" };
         }
@@ -610,10 +985,14 @@ export class VirtualKeyVault {
         }
 
         const allowedModels: string[] = JSON.parse(String(row.allowed_models));
+
         const requestedAllowed =
-          allowedModels.includes("*") || allowedModels.includes(opts.requestedModel);
+          allowedModels.includes("*") ||
+          allowedModels.includes(opts.requestedModel);
+
         const effectiveAllowed =
-          allowedModels.includes("*") || allowedModels.includes(effectiveModel);
+          allowedModels.includes("*") ||
+          allowedModels.includes(effectiveModel);
 
         if (!requestedAllowed || !effectiveAllowed) {
           return {
@@ -625,19 +1004,64 @@ export class VirtualKeyVault {
           };
         }
 
-        if (row.budget_period === "monthly" && nowMs >= Number(row.period_reset_at)) {
-          const nextReset = getNextMonthlyReset(nowMs);
-          this.stmtRolloverPeriod.run(nextReset, candidateRecordId);
+        const budgetPeriod = String(row.budget_period);
+
+        let periodId: string;
+
+        if (budgetPeriod === "lifetime") {
+          periodId = "lifetime";
+        } else if (budgetPeriod === "monthly") {
+          periodId = `monthly:${new Date(nowMs)
+            .toISOString()
+            .slice(0, 7)}`;
+
+          if (nowMs >= Number(row.period_reset_at)) {
+            this.stmtRolloverPeriod.run(
+              getNextMonthlyReset(nowMs),
+              candidateRecordId
+            );
+          }
+        } else {
+          throw new Error("VAULT_INTERNAL_ERROR: Unsupported budget period.");
         }
 
-        const updateResult = this.stmtReserveBudget.run(
+        // Ensure the authorization period has a usage record.
+        this.db.prepare(`
+          INSERT OR IGNORE INTO budget_period_usage (
+            key_id,
+            period_id,
+            budget_limit_micros,
+            spent_micros,
+            reserved_micros,
+            created_at,
+            updated_at
+          )
+          VALUES (?, ?, ?, 0, 0, ?, ?)
+        `).run(
+          candidateRecordId,
+          periodId,
+          Number(row.budget_limit_micros),
+          nowMs,
+          nowMs
+        );
+
+        // Authoritative budget check and reservation.
+        const usageUpdate = this.db.prepare(`
+          UPDATE budget_period_usage
+          SET reserved_micros = reserved_micros + ?,
+              updated_at = ?
+          WHERE key_id = ?
+            AND period_id = ?
+            AND spent_micros + reserved_micros + ? <= budget_limit_micros
+        `).run(
           reserveMicros,
           nowMs,
           candidateRecordId,
+          periodId,
           reserveMicros
         );
 
-        if (Number(updateResult.changes) === 0) {
+        if (Number(usageUpdate.changes) !== 1) {
           return {
             valid: false,
             reason: "BUDGET_EXCEEDED",
@@ -647,7 +1071,53 @@ export class VirtualKeyVault {
           };
         }
 
+        // Keep the legacy aggregate synchronized temporarily.
+        const legacyUpdate = this.db.prepare(`
+          UPDATE virtual_keys
+          SET reserved_micros = reserved_micros + ?,
+              last_used_at = ?
+          WHERE id = ?
+        `).run(reserveMicros, nowMs, candidateRecordId);
+
+        if (Number(legacyUpdate.changes) !== 1) {
+          throw new Error("VAULT_INTERNAL_ERROR: Legacy reservation update failed.");
+        }
+
+        const reservationId = `res_${crypto.randomBytes(16).toString("hex")}`;
+
+        // Persist the reservation in the same transaction as the budget hold.
+        this.db.prepare(`
+          INSERT INTO budget_reservations (
+            reservation_id,
+            key_id,
+            org_id,
+            period_id,
+            model,
+            reserved_micros,
+            actual_micros,
+            status,
+            receipt_id,
+            created_at,
+            updated_at,
+            settled_at,
+            legacy,
+            owner_id
+          )
+          VALUES (?, ?, ?, ?, ?, ?, NULL, 'RESERVED', NULL, ?, ?, NULL, 0, ?)
+        `).run(
+          reservationId,
+          candidateRecordId,
+          String(row.org_id),
+          periodId,
+          effectiveModel,
+          reserveMicros,
+          nowMs,
+          nowMs,
+          this.instanceId
+        );
+
         let decryptedKey: string;
+
         try {
           decryptedKey = this.decryptProviderKey(row);
         } catch (cryptoErr: any) {
@@ -655,16 +1125,17 @@ export class VirtualKeyVault {
           throw new VaultDecryptException(candidateRecordId, errClass);
         }
 
-        const reservationId = `res_${crypto.randomBytes(12).toString("hex")}`;
-
-        this.inFlightReservations.set(reservationId, {
+        const handle: ReservationHandle = {
           reservation_id: reservationId,
           record_id: candidateRecordId,
           org_id: String(row.org_id),
+          period_id: periodId,
           model: effectiveModel,
           reserved_micros: reserveMicros,
           created_at: nowMs,
-        });
+        };
+
+        createdHandle.current = handle;
 
         const safeResult: AuthorizeResult = {
           valid: true,
@@ -703,6 +1174,13 @@ export class VirtualKeyVault {
 
         return safeResult;
       });
+
+      // Cache the reservation only after SQLite commits successfully.
+      if (result.valid && createdHandle.current) {
+        this.inFlightReservations.set(createdHandle.current.reservation_id, createdHandle.current);
+      }
+
+      return result;
     } catch (err: any) {
       if (err instanceof VaultDecryptException) {
         this.onDiagnosticError({
@@ -710,6 +1188,7 @@ export class VirtualKeyVault {
           errorClass: err.causeClass,
           recordId: err.recordId,
         });
+
         return {
           valid: false,
           reason: "VAULT_DECRYPT_ERROR",
@@ -718,11 +1197,13 @@ export class VirtualKeyVault {
       }
 
       const errorClass = err?.constructor?.name ?? "UnknownError";
+
       this.onDiagnosticError({
         code: "VAULT_INTERNAL_ERROR",
         errorClass,
         recordId: candidateRecordId,
       });
+
       return {
         valid: false,
         reason: "VAULT_INTERNAL_ERROR",
@@ -731,75 +1212,307 @@ export class VirtualKeyVault {
     }
   }
 
-  public reconcileSpend(
+
+    public reconcileSpend(
     reservationId: string,
     actualCostUsd: number,
     receiptId: string | null = null,
     nowMs: number = Date.now()
   ): { reconciled: boolean; actual_micros: number } {
-    const handle = this.inFlightReservations.get(reservationId);
-    if (!handle) {
-      return { reconciled: false, actual_micros: 0 };
+    if (
+      typeof actualCostUsd !== "number" ||
+      !Number.isFinite(actualCostUsd) ||
+      actualCostUsd < 0
+    ) {
+      throw new Error("VAULT_RECONCILE_ERROR: Invalid actual cost.");
     }
 
-    this.inFlightReservations.delete(reservationId);
+    if (!Number.isSafeInteger(nowMs) || nowMs < 0) {
+      throw new Error("VAULT_RECONCILE_ERROR: Invalid settlement timestamp.");
+    }
 
-    const safeUsd = Number.isFinite(actualCostUsd) && actualCostUsd > 0 ? actualCostUsd : 0;
-    const actualMicros = usdToMicros(safeUsd);
-    const ledgerId = `led_${crypto.randomBytes(12).toString("hex")}`;
+    const actualMicros = usdToMicros(actualCostUsd);
 
-    this.runInTransaction(() => {
-      this.stmtReconcileSpend.run(handle.reserved_micros, actualMicros, handle.record_id);
-      this.stmtInsertLedger.run(
-        ledgerId,
-        handle.record_id,
-        handle.org_id,
-        nowMs,
-        handle.reserved_micros,
+    if (!Number.isSafeInteger(actualMicros) || actualMicros < 0) {
+      throw new Error("VAULT_RECONCILE_ERROR: Actual cost exceeds safe storage range.");
+    }
+
+    const result = this.runInTransaction(() => {
+      const reservation = this.db.prepare(`
+        SELECT
+          reservation_id,
+          key_id,
+          org_id,
+          period_id,
+          model,
+          reserved_micros,
+          status
+        FROM budget_reservations
+        WHERE reservation_id = ?
+      `).get(reservationId) as
+        | {
+            reservation_id: string;
+            key_id: string;
+            org_id: string;
+            period_id: string;
+            model: string;
+            reserved_micros: number;
+            status: string;
+          }
+        | undefined;
+
+      if (
+        !reservation ||
+        (reservation.status !== "RESERVED" &&
+          reservation.status !== "UNCERTAIN")
+      ) {
+        return { reconciled: false, actual_micros: 0 };
+      }
+
+      const reservedMicros = Number(reservation.reserved_micros);
+
+      if (
+        !Number.isSafeInteger(reservedMicros) ||
+        reservedMicros < 0
+      ) {
+        throw new Error("VAULT_RECONCILE_ERROR: Invalid reservation amount.");
+      }
+
+      const usage = this.db.prepare(`
+        SELECT spent_micros, reserved_micros
+        FROM budget_period_usage
+        WHERE key_id = ? AND period_id = ?
+      `).get(
+        reservation.key_id,
+        reservation.period_id
+      ) as
+        | { spent_micros: number; reserved_micros: number }
+        | undefined;
+
+      if (!usage) {
+        throw new Error("VAULT_RECONCILE_ERROR: Budget period record is missing.");
+      }
+
+      const currentPeriodSpent = Number(usage.spent_micros);
+      const currentPeriodReserved = Number(usage.reserved_micros);
+
+      if (
+        !Number.isSafeInteger(currentPeriodSpent) ||
+        currentPeriodSpent < 0 ||
+        !Number.isSafeInteger(currentPeriodReserved) ||
+        currentPeriodReserved < reservedMicros ||
+        !Number.isSafeInteger(currentPeriodSpent + actualMicros)
+      ) {
+        throw new Error("VAULT_RECONCILE_ERROR: Budget period accounting is inconsistent.");
+      }
+
+      const key = this.db.prepare(`
+        SELECT budget_period, reserved_micros, current_spend_micros
+        FROM virtual_keys
+        WHERE id = ?
+      `).get(reservation.key_id) as
+        | {
+            budget_period: string;
+            reserved_micros: number;
+            current_spend_micros: number;
+          }
+        | undefined;
+
+      if (!key) {
+        throw new Error("VAULT_RECONCILE_ERROR: Virtual key record is missing.");
+      }
+
+      const legacyReserved = Number(key.reserved_micros);
+      const legacySpent = Number(key.current_spend_micros);
+
+      if (
+        !Number.isSafeInteger(legacyReserved) ||
+        legacyReserved < reservedMicros ||
+        !Number.isSafeInteger(legacySpent) ||
+        legacySpent < 0
+      ) {
+        throw new Error("VAULT_RECONCILE_ERROR: Legacy budget accounting is inconsistent.");
+      }
+
+      const currentPeriodId =
+        key.budget_period === "lifetime"
+          ? "lifetime"
+          : key.budget_period === "monthly"
+            ? `monthly:${new Date(nowMs).toISOString().slice(0, 7)}`
+            : null;
+
+      if (!currentPeriodId) {
+        throw new Error("VAULT_RECONCILE_ERROR: Unsupported budget period.");
+      }
+
+      const updateReservation = this.db.prepare(`
+        UPDATE budget_reservations
+        SET status = 'SETTLED',
+            actual_micros = ?,
+            receipt_id = ?,
+            updated_at = ?,
+            settled_at = ?
+        WHERE reservation_id = ?
+          AND status IN ('RESERVED', 'UNCERTAIN')
+      `).run(
         actualMicros,
-        handle.model,
+        receiptId,
+        nowMs,
+        nowMs,
+        reservationId
+      );
+
+      if (Number(updateReservation.changes) !== 1) {
+        return { reconciled: false, actual_micros: 0 };
+      }
+
+      const updateUsage = this.db.prepare(`
+        UPDATE budget_period_usage
+        SET reserved_micros = reserved_micros - ?,
+            spent_micros = spent_micros + ?,
+            updated_at = ?
+        WHERE key_id = ?
+          AND period_id = ?
+          AND reserved_micros >= ?
+      `).run(
+        reservedMicros,
+        actualMicros,
+        nowMs,
+        reservation.key_id,
+        reservation.period_id,
+        reservedMicros
+      );
+
+      if (Number(updateUsage.changes) !== 1) {
+        throw new Error("VAULT_RECONCILE_ERROR: Could not settle period usage.");
+      }
+
+      // Keep the legacy aggregate synchronized while existing consumers remain.
+      // Late settlements affect their original period, not the current month's
+      // compatibility spend counter.
+      const updateLegacy =
+        reservation.period_id === currentPeriodId
+          ? this.db.prepare(`
+              UPDATE virtual_keys
+              SET reserved_micros = reserved_micros - ?,
+                  current_spend_micros = current_spend_micros + ?
+              WHERE id = ?
+                AND reserved_micros >= ?
+            `).run(
+              reservedMicros,
+              actualMicros,
+              reservation.key_id,
+              reservedMicros
+            )
+          : this.db.prepare(`
+              UPDATE virtual_keys
+              SET reserved_micros = reserved_micros - ?
+              WHERE id = ?
+                AND reserved_micros >= ?
+            `).run(
+              reservedMicros,
+              reservation.key_id,
+              reservedMicros
+            );
+
+      if (Number(updateLegacy.changes) !== 1) {
+        throw new Error("VAULT_RECONCILE_ERROR: Could not update legacy budget totals.");
+      }
+
+      // Stable ledger ID makes the ledger entry unique to this reservation.
+      this.stmtInsertLedger.run(
+        `led_${reservationId}`,
+        reservation.key_id,
+        reservation.org_id,
+        nowMs,
+        reservedMicros,
+        actualMicros,
+        reservation.model,
         receiptId
       );
+
+      return {
+        reconciled: true,
+        actual_micros: actualMicros,
+      };
     });
 
-    return { reconciled: true, actual_micros: actualMicros };
+    if (result.reconciled) {
+      this.inFlightReservations.delete(reservationId);
+    }
+
+    return result;
   }
 
-  public reapStaleReservations(
+    public reapStaleReservations(
     maxAgeMs: number = DEFAULT_RESERVATION_TTL_MS,
     nowMs: number = Date.now()
   ): { reapedCount: number; releasedMicros: number } {
-    const staleHandles: ReservationHandle[] = [];
-    for (const handle of this.inFlightReservations.values()) {
-      if (nowMs - handle.created_at >= maxAgeMs) {
-        staleHandles.push(handle);
+    if (!Number.isSafeInteger(maxAgeMs) || maxAgeMs < 0) {
+      throw new Error("VAULT_REAPER_ERROR: Invalid maximum reservation age.");
+    }
+
+    if (!Number.isSafeInteger(nowMs) || nowMs < 0) {
+      throw new Error("VAULT_REAPER_ERROR: Invalid reaper timestamp.");
+    }
+
+    const cutoff = nowMs - maxAgeMs;
+    const leaseExpiryCutoff =
+      nowMs - VAULT_INSTANCE_RECOVERY_GRACE_MS;
+
+    const markedReservationIds = this.runInTransaction(() => {
+      const eligibleReservations = `
+        SELECT br.reservation_id
+        FROM budget_reservations AS br
+        INNER JOIN vault_instances AS vi
+          ON vi.instance_id = br.owner_id
+        WHERE br.status = 'RESERVED'
+          AND br.created_at <= ?
+          AND (
+            vi.released_at IS NOT NULL
+            OR vi.lease_expires_at <= ?
+          )
+      `;
+
+      const staleRows = this.db.prepare(`
+        ${eligibleReservations}
+        ORDER BY br.created_at ASC
+      `).all(cutoff, leaseExpiryCutoff) as
+        Array<{ reservation_id: string }>;
+
+      if (staleRows.length === 0) {
+        return [];
       }
-    }
 
-    if (staleHandles.length === 0) {
-      return { reapedCount: 0, releasedMicros: 0 };
-    }
+      const update = this.db.prepare(`
+        UPDATE budget_reservations
+        SET status = 'UNCERTAIN',
+            updated_at = ?
+        WHERE status = 'RESERVED'
+          AND reservation_id IN (
+            ${eligibleReservations}
+          )
+      `).run(nowMs, cutoff, leaseExpiryCutoff);
 
-    let releasedMicros = 0;
-    this.runInTransaction(() => {
-      for (const handle of staleHandles) {
-        this.inFlightReservations.delete(handle.reservation_id);
-        this.stmtReleaseReservationOnly.run(handle.reserved_micros, handle.record_id);
-        this.stmtInsertLedger.run(
-          `led_reap_${crypto.randomBytes(10).toString("hex")}`,
-          handle.record_id,
-          handle.org_id,
-          nowMs,
-          handle.reserved_micros,
-          0,
-          handle.model,
-          "TIMEOUT_REAPED"
+      if (Number(update.changes) !== staleRows.length) {
+        throw new Error(
+          "VAULT_REAPER_ERROR: Reservation state changed unexpectedly."
         );
-        releasedMicros += handle.reserved_micros;
       }
+
+      return staleRows.map((row) => row.reservation_id);
     });
 
-    return { reapedCount: staleHandles.length, releasedMicros };
+    // The database is authoritative. Remove only the local cache entries
+    // after the transaction commits. Keep all budget holds intact.
+    for (const reservationId of markedReservationIds) {
+      this.inFlightReservations.delete(reservationId);
+    }
+
+    return {
+      reapedCount: markedReservationIds.length,
+      releasedMicros: 0,
+    };
   }
 
   public revokeKey(recordId: string, nowMs: number = Date.now()): boolean {
@@ -846,6 +1559,28 @@ export class VirtualKeyVault {
     });
   }
 
+  public getKeyMetadataByVirtualKey(
+  rawVirtualKey: string
+): VirtualKeyMetadata | null {
+  if (
+    typeof rawVirtualKey !== "string" ||
+    !rawVirtualKey.startsWith("vk-aindigo-")
+  ) {
+    return null;
+  }
+
+  const keyHash = VirtualKeyVault.hashVirtualKey(rawVirtualKey);
+  const row = this.stmtGetByHash.get(keyHash) as
+    | { id?: string }
+    | undefined;
+
+  if (!row?.id) {
+    return null;
+  }
+
+  return this.getKeyMetadata(String(row.id));
+}
+
   public getKeyMetadata(recordId: string): VirtualKeyMetadata | null {
     const row = this.stmtGetById.get(recordId) as any;
     if (!row) return null;
@@ -891,6 +1626,41 @@ export class VirtualKeyVault {
   }
 
   public close(): void {
-    this.db.close();
+    if (this.closed) {
+      return;
+    }
+
+    this.closed = true;
+
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+
+    try {
+      this.runInTransaction(() => {
+        const nowMs = Date.now();
+
+        this.db.prepare(`
+          UPDATE budget_reservations
+          SET status = 'UNCERTAIN',
+              updated_at = ?
+          WHERE owner_id = ?
+            AND status = 'RESERVED'
+        `).run(nowMs, this.instanceId);
+
+        this.db.prepare(`
+          UPDATE vault_instances
+          SET heartbeat_at = ?,
+              lease_expires_at = ?,
+              released_at = ?
+          WHERE instance_id = ?
+            AND released_at IS NULL
+        `).run(nowMs, nowMs, nowMs, this.instanceId);
+      });
+    } finally {
+      this.inFlightReservations.clear();
+      this.db.close();
+    }
   }
 }

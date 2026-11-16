@@ -15,7 +15,7 @@ export class SSEDlpTransformStream extends Transform {
     this.lookbehindSize = lookbehindSize;
   }
 
-  _transform(chunk: Buffer | string, encoding: BufferEncoding, callback: TransformCallback): void {
+  _transform(chunk: Buffer | string, _encoding: BufferEncoding, callback: TransformCallback): void {
     try {
       const chunkStr = chunk.toString();
       this.buffer += chunkStr;

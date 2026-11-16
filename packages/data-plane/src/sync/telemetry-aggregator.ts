@@ -173,41 +173,72 @@ export class TelemetryAggregator {
         let expectedSeq = cursor ? cursor.last_seq + 1 : 1;
         let expectedPrevHash = cursor ? cursor.last_hash : "0000000000000000000000000000000000000000000000000000000000000000";
 
-        if (payload.records.length > 0) {
-          if (payload.records[0].seq !== expectedSeq) {
-            throw new Error(`SEQUENCE_CONTINUITY_ERROR: Expected starting seq ${expectedSeq}, got ${payload.records[0].seq}`);
-          }
-          if (payload.records[0].prevHash !== expectedPrevHash) {
-            throw new Error(`PREV_HASH_CONTINUITY_ERROR: Genesis prevHash does not match cursor state.`);
-          }
-        }
+        const firstRecord = payload.records[0];
+
+if (payload.records.length > 0) {
+  if (!firstRecord) {
+    throw new Error("TELEMETRY_RECORD_MISSING: First record is missing.");
+  }
+
+  if (firstRecord.seq !== expectedSeq) {
+    throw new Error(
+      `SEQUENCE_CONTINUITY_ERROR: Expected starting seq ${expectedSeq}, got ${firstRecord.seq}`
+    );
+  }
+
+  if (firstRecord.prevHash !== expectedPrevHash) {
+    throw new Error(
+      "PREV_HASH_CONTINUITY_ERROR: Genesis prevHash does not match cursor state."
+    );
+  }
+}
 
         for (let i = 0; i < payload.records.length; i++) {
-          const r = payload.records[i];
-          if (i > 0) {
-            if (r.seq !== payload.records[i - 1].seq + 1) {
-              throw new Error(`SEQUENCE_GAP_ERROR: Sequence break at seq ${r.seq}`);
-            }
-            if (r.prevHash !== payload.records[i - 1].hash) {
-              throw new Error(`HASH_CHAIN_BROKEN: Record ${r.seq} prevHash does not match preceding record hash.`);
-            }
-          }
+  const r = payload.records[i];
 
-          // Use the EXACT shared canonical hash function
-          const { hash: computedRecordHash } = computeCanonicalRecordHash({
-            id: r.id,
-            timestamp: r.timestamp,
-            eventType: r.eventType,
-            orgId: payload.orgId,
-            virtualKeyId: r.virtualKeyId,
-            payload: r.payloadJson,
-            prevHash: r.prevHash,
-          });
+  if (!r) {
+    throw new Error(`TELEMETRY_RECORD_MISSING: Record at index ${i} is missing.`);
+  }
 
-          if (computedRecordHash !== r.hash) {
-            throw new Error(`CRYPTOGRAPHIC_TAMPER_DETECTED: Hash mismatch for record seq ${r.seq}`);
-          }
-        }
+  const previousRecord = i > 0 ? payload.records[i - 1] : undefined;
+
+  if (i > 0) {
+    if (!previousRecord) {
+      throw new Error(
+        `TELEMETRY_RECORD_MISSING: Previous record at index ${i - 1} is missing.`
+      );
+    }
+
+    if (r.seq !== previousRecord.seq + 1) {
+      throw new Error(
+        `SEQUENCE_GAP_ERROR: Sequence break at seq ${r.seq}`
+      );
+    }
+
+    if (r.prevHash !== previousRecord.hash) {
+      throw new Error(
+        `HASH_CHAIN_BROKEN: Record ${r.seq} prevHash does not match preceding record hash.`
+      );
+    }
+  }
+
+  // Use the EXACT shared canonical hash function
+  const { hash: computedRecordHash } = computeCanonicalRecordHash({
+    id: r.id,
+    timestamp: r.timestamp,
+    eventType: r.eventType,
+    orgId: payload.orgId,
+    virtualKeyId: r.virtualKeyId,
+    payload: r.payloadJson,
+    prevHash: r.prevHash,
+  });
+
+  if (computedRecordHash !== r.hash) {
+    throw new Error(
+      `CRYPTOGRAPHIC_TAMPER_DETECTED: Hash mismatch for record seq ${r.seq}`
+    );
+  }
+}
 
         this.db.prepare(`
           INSERT INTO control_plane_telemetry_batches (batch_id, org_id, edge_node_id, received_at, record_count, merkle_checkpoint_hash)
@@ -255,8 +286,13 @@ export class TelemetryAggregator {
         }
 
         if (payload.records.length > 0) {
-          const lastRec = payload.records[payload.records.length - 1];
-          this.db.prepare(`
+  const lastRec = payload.records[payload.records.length - 1];
+
+  if (!lastRec) {
+    throw new Error("TELEMETRY_RECORD_MISSING: Final record is missing.");
+  }
+
+  this.db.prepare(`
             INSERT INTO edge_telemetry_cursors (org_id, edge_node_id, last_seq, last_hash)
             VALUES (?, ?, ?, ?)
             ON CONFLICT(org_id, edge_node_id) DO UPDATE SET last_seq = excluded.last_seq, last_hash = excluded.last_hash

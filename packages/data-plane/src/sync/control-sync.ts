@@ -125,17 +125,133 @@ export class ControlPlaneSyncClient {
           if (revoked) revCount++;
         }
 
-        for (const update of budgets) {
-          if (update.newBudgetLimitUsd < 0) {
-            throw new Error("NEGATIVE_BUDGET_VALUE_NOT_ALLOWED");
+                for (const update of budgets) {
+          if (
+            !update ||
+            typeof update.recordId !== "string" ||
+            update.recordId.trim().length === 0
+          ) {
+            throw new Error("INVALID_BUDGET_UPDATE_RECORD_ID");
           }
+
+          if (
+            typeof update.newBudgetLimitUsd !== "number" ||
+            !Number.isFinite(update.newBudgetLimitUsd) ||
+            update.newBudgetLimitUsd < 0
+          ) {
+            throw new Error("INVALID_BUDGET_VALUE");
+          }
+
           const meta = this.vault.getKeyMetadata(update.recordId);
+
           if (!meta || meta.org_id !== payload.orgId) {
-            throw new Error(`CROSS_ORG_BUDGET_UPDATE_ATTEMPT: Key ${update.recordId} does not belong to org ${payload.orgId}`);
+            throw new Error(
+              `CROSS_ORG_BUDGET_UPDATE_ATTEMPT: Key ${update.recordId} does not belong to org ${payload.orgId}`
+            );
           }
 
           const newLimitMicros = usdToMicros(update.newBudgetLimitUsd);
-          db.prepare(`UPDATE virtual_keys SET budget_limit_micros = ? WHERE id = ? AND org_id = ?`).run(newLimitMicros, update.recordId, payload.orgId);
+
+          if (!Number.isSafeInteger(newLimitMicros)) {
+            throw new Error("BUDGET_VALUE_EXCEEDS_SAFE_STORAGE_RANGE");
+          }
+
+          // Resolve the active accounting period.
+          // Historical periods must retain their original configured limits.
+          const activePeriodId =
+            meta.budget_period === "lifetime"
+              ? "lifetime"
+              : meta.budget_period === "monthly"
+                ? `monthly:${new Date(now).toISOString().slice(0, 7)}`
+                : null;
+
+          if (!activePeriodId) {
+            throw new Error("UNSUPPORTED_BUDGET_PERIOD");
+          }
+
+          let activeUsage = db.prepare(`
+            SELECT period_id
+            FROM budget_period_usage
+            WHERE key_id = ? AND period_id = ?
+          `).get(update.recordId, activePeriodId);
+
+          // If a monthly period has just rolled over and nobody has
+          // authorized a request yet, initialize its new usage row.
+          // Historical periods and their reservations remain untouched.
+          if (!activeUsage) {
+            const isNewMonthlyPeriod =
+              meta.budget_period === "monthly" &&
+              now >= meta.period_reset_at;
+
+            if (!isNewMonthlyPeriod) {
+              throw new Error(
+                `ACTIVE_BUDGET_PERIOD_MISSING: ${update.recordId}:${activePeriodId}`
+              );
+            }
+
+            db.prepare(`
+              INSERT INTO budget_period_usage (
+                key_id,
+                period_id,
+                budget_limit_micros,
+                spent_micros,
+                reserved_micros,
+                created_at,
+                updated_at
+              )
+              VALUES (?, ?, ?, 0, 0, ?, ?)
+            `).run(
+              update.recordId,
+              activePeriodId,
+              newLimitMicros,
+              now,
+              now
+            );
+
+            activeUsage = db.prepare(`
+              SELECT period_id
+              FROM budget_period_usage
+              WHERE key_id = ? AND period_id = ?
+            `).get(update.recordId, activePeriodId);
+          }
+
+          if (!activeUsage) {
+            throw new Error("ACTIVE_BUDGET_PERIOD_INITIALIZATION_FAILED");
+          }
+
+          // Update the configured limit for future periods.
+          const keyUpdate = db.prepare(`
+            UPDATE virtual_keys
+            SET budget_limit_micros = ?
+            WHERE id = ? AND org_id = ?
+          `).run(
+            newLimitMicros,
+            update.recordId,
+            payload.orgId
+          );
+
+          if (Number(keyUpdate.changes) !== 1) {
+            throw new Error("VIRTUAL_KEY_BUDGET_UPDATE_FAILED");
+          }
+
+          // Update the active period limit without changing its spend
+          // or outstanding reservation balances.
+          const periodUpdate = db.prepare(`
+            UPDATE budget_period_usage
+            SET budget_limit_micros = ?,
+                updated_at = ?
+            WHERE key_id = ? AND period_id = ?
+          `).run(
+            newLimitMicros,
+            now,
+            update.recordId,
+            activePeriodId
+          );
+
+          if (Number(periodUpdate.changes) !== 1) {
+            throw new Error("BUDGET_PERIOD_LIMIT_UPDATE_FAILED");
+          }
+
           budCount++;
         }
 

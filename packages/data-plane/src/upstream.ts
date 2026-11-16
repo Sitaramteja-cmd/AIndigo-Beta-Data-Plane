@@ -28,7 +28,14 @@ export async function executeUpstreamOrSandbox(params: {
   modelRouted: string;
   sanitizedMessages: UpstreamMessage[];
   simulateMaliciousToolOutput?: boolean;
+  signal?: AbortSignal;
+  timeoutMs?: number;
 }): Promise<UpstreamExecutionResult> {
+  const provider = params.provider.trim().toLowerCase();
+  if (!["openai", "anthropic", "gemini", "google", "groq"].includes(provider)) {
+    throw new Error(`Unsupported upstream provider: ${params.provider}`);
+  }
+
   const lastSanitizedContent =
     params.sanitizedMessages[params.sanitizedMessages.length - 1]?.content || '';
 
@@ -46,10 +53,33 @@ export async function executeUpstreamOrSandbox(params: {
     };
   }
 
+  // Live provider requests share one bounded timeout and cancellation signal.
+  const timeoutMs = params.timeoutMs ?? 30_000;
+
+  if (
+    !Number.isSafeInteger(timeoutMs) ||
+    timeoutMs <= 0 ||
+    timeoutMs > 2_147_483_647
+  ) {
+    throw new Error('Upstream timeout must be a positive supported integer.');
+  }
+
+  if (params.signal?.aborted) {
+    throw new Error('Upstream request was cancelled.');
+  }
+
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+
+  const requestSignal = params.signal
+    ? AbortSignal.any([timeoutSignal, params.signal])
+    : timeoutSignal;
+
   // 2. Live Anthropic Upstream Call
-  if (params.provider === 'anthropic') {
+  if (provider === 'anthropic') {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
+      redirect: 'error',
+      signal: requestSignal,
       headers: {
         'x-api-key': params.decryptedApiKey,
         'anthropic-version': '2023-06-01',
@@ -80,7 +110,7 @@ export async function executeUpstreamOrSandbox(params: {
   }
 
   // 3. Live Google Gemini Upstream Call (OpenAI-compatible endpoint or native v1beta)
-  if (params.provider === 'gemini') {
+  if ((provider === 'gemini' || provider === 'google')) {
     const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${params.modelRouted}:generateContent?key=${params.decryptedApiKey}`;
     const contents = params.sanitizedMessages.map((m) => ({
       role: m.role === 'assistant' ? 'model' : 'user',
@@ -89,6 +119,8 @@ export async function executeUpstreamOrSandbox(params: {
 
     const response = await fetch(geminiUrl, {
       method: 'POST',
+      redirect: 'error',
+      signal: requestSignal,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ contents }),
     });
@@ -111,12 +143,14 @@ export async function executeUpstreamOrSandbox(params: {
 
   // 4. Live OpenAI or Groq Upstream Call
   const baseUrl =
-    params.provider === 'groq'
+    provider === 'groq'
       ? 'https://api.groq.com/openai/v1/chat/completions'
       : 'https://api.openai.com/v1/chat/completions';
 
   const response = await fetch(baseUrl, {
     method: 'POST',
+    redirect: 'error',
+    signal: requestSignal,
     headers: {
       Authorization: `Bearer ${params.decryptedApiKey}`,
       'Content-Type': 'application/json',
@@ -128,7 +162,7 @@ export async function executeUpstreamOrSandbox(params: {
   });
 
   if (!response.ok) {
-    throw new Error(`Upstream ${params.provider} API error (${response.status}): ${await response.text()}`);
+    throw new Error(`Upstream ${provider} API error (${response.status}): ${await response.text()}`);
   }
 
   const data = (await response.json()) as any;
