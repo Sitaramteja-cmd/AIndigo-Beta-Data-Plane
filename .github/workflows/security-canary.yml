@@ -37,5 +37,17 @@ jobs:
       - name: Build Data Plane
         run: npm run build --workspace=@aindigo/data-plane
 
+      - name: Build Control Plane
+        run: npm run build --workspace=@aindigo/control-plane
+
+      - name: Run Shared tests
+        run: node --import tsx --test "packages/shared/tests/**/*.test.ts"
+
+      - name: Run Data Plane tests
+        run: node --import tsx --test "packages/data-plane/src/**/*.test.ts"
+
+      - name: Run Control Plane tests
+        run: node --import tsx --test "packages/control-plane/src/**/*.test.ts"
+
       - name: Run isolated egress security canary
         run: npm run canary
